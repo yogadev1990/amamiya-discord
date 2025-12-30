@@ -1,41 +1,40 @@
 const { MilvusClient, DataType } = require("@zilliz/milvus2-sdk-node");
-const { GoogleGenerativeAI } = require("@google/generative-ai"); // Library Google GenAI terbaru
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 require("dotenv").config();
 
-// Setup Client Milvus
-const milvusClient = new MilvusClient({
-    address: `${process.env.MILVUS_HOST}:${process.env.MILVUS_PORT}`, 
-    // token: "root:Milvus" // Jika pakai password, uncomment ini
-});
+// Pastikan tidak ada http:// di host
+const address = `${process.env.MILVUS_HOST}:${process.env.MILVUS_PORT}`;
+const milvusClient = new MilvusClient({ address, ssl: false });
 
-// Setup Client Google untuk Embedding
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function searchSkripsi(queryText) {
     try {
-        // 1. Generate Embedding dari Query User
-        // PENTING: Model embedding HARUS SAMA dengan yang dipakai saat memasukkan data ke Milvus.
-        // Biasanya pasangan Gemini Flash adalah "text-embedding-004".
+        // 1. Embedding
         const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
-        
         const result = await model.embedContent(queryText);
         const queryVector = result.embedding.values;
 
         // 2. Search di Milvus
-        // Kita cari Top 5 skripsi yang paling relevan
         const searchResult = await milvusClient.search({
             collection_name: process.env.MILVUS_COLLECTION,
-            vector: queryVector,
-            limit: 5, // Ambil 5 referensi teratas
-            output_fields: ["title", "specialization", "abstract", "authors", "year", "url"], // Field yang mau diambil
-            consistency_level: "Strong",
+            // PENTING: data harus array of arrays [[0.1, ...]] untuk single query
+            data: [queryVector], 
+            limit: 5,
+            output_fields: ["title", "specialization", "abstract", "authors", "year", "url"],
+            // PENTING: params pencarian vector
+            params: { 
+                metric_type: "COSINE", 
+                params: JSON.stringify({ nprobe: 10 }) 
+            }
         });
 
         if (searchResult.results.length === 0) {
             return null;
         }
 
-        // 3. Format Hasil
+        // Search result milvus biasanya membungkus result dalam property 'results'
+        // Struktur balikan milvus node sdk kadang langsung array of objects tergantung versi
         return searchResult.results;
 
     } catch (error) {

@@ -4,91 +4,91 @@ const GeminiAi = require('../../utils/geminiHelper');
 
 module.exports = {
     name: 'skripsi',
-    description: 'Cari referensi skripsi FKG Unsri (2006-2025) via Milvus Database',
+    description: 'Cari referensi skripsi FKG Unsri via Milvus',
     async execute(message, args) {
         if (!args.length) {
-            return message.reply('Mau cari skripsi tentang apa? Contoh: `!skripsi pengaruh obat kumur terhadap plak`');
+            return message.reply('Mau cari skripsi tentang apa? Contoh: `!skripsi karies gigi anak`');
         }
 
         const query = args.join(' ');
-        await message.channel.sendTyping();
+        // Gunakan reply agar men-tag user, bukan sendTyping biasa
         const loadingMsg = await message.reply('🔍 Sedang mencari di database skripsi Unsri...');
 
         try {
-            // 1. CARI DI MILVUS (RAG Retrieval)
             const results = await searchSkripsi(query);
 
             if (!results || results.length === 0) {
-                return loadingMsg.edit('❌ Tidak ditemukan skripsi yang relevan dengan topik tersebut.');
+                return loadingMsg.edit('❌ Tidak ditemukan skripsi yang relevan.');
             }
 
-            // 2. SUSUN KONTEKS (Context Construction)
-            // Kita rangkai data dari Milvus jadi teks yang bisa dibaca Gemini
+            // --- OPTIMASI 1: Bersihkan Data & Mapping Field ---
             let contextText = "";
             results.forEach((doc, index) => {
+                // BUG FIX: Sesuaikan nama field dengan Schema Milvus (title, authors, url)
+                // Safety check: (doc.abstract || "").substring(...) mencegah error jika abstrak null
                 contextText += `
                 [Dokumen ${index + 1}]
-                Judul: ${doc.judul}
-                Penulis: ${doc.penulis} (${doc.tahun})
-                Link: ${doc.link}
-                Abstrak: ${doc.abstrak}
+                Judul: ${doc.title}
+                Penulis: ${doc.authors} (${doc.year})
+                Departemen: ${doc.specialization}
+                Link: ${doc.url}
+                Abstrak Singkat: ${(doc.abstract || "").substring(0, 300)}... 
                 -----------------------------------`;
             });
 
-            // 3. GENERATE JAWABAN DENGAN GEMINI (Generation)
+            // --- OPTIMASI 2: Prompt Engineering ---
             const prompt = `
-            User mencari referensi skripsi dengan topik: "${query}"
+            Bertindaklah sebagai Asisten Akademik FKG UNSRI.
+            Pertanyaan User: "${query}"
             
-            Berikut adalah data skripsi FKG Unsri terdahulu yang ditemukan dari Database Vector (Milvus):
+            Data Referensi (Ditemukan di Database Internal):
             ${contextText}
 
-            Instruksi:
-            1. Jawab pertanyaan user berdasarkan data di atas.
-            2. Rangkumkan poin-poin penting dari skripsi-skripsi tersebut yang relevan dengan topik user.
-            3. Sebutkan Judul, Penulis, dan Tahun saat mengutip.
-            4. Berikan kesimpulan singkat tren penelitian topik tersebut di Unsri.
-            5. JANGAN mengarang data. Gunakan hanya data yang disediakan.
-            6. Sertakan Link skripsi di akhir setiap poin jika ada.
+            Tugas:
+            1. Jawab pertanyaan user dengan mensintesis informasi dari referensi di atas.
+            2. Jika relevan, kutip Judul dan Penulis (Tahun).
+            3. Berikan kesimpulan singkat.
+            4. Jika tidak ada info di data yang menjawab pertanyaan, katakan sejujurnya.
             `;
 
             const jawabanAI = await GeminiAi.run(message.author.id, message.author.username, prompt);
 
-            // 4. KIRIM HASIL KE DISCORD
-            // Kita pecah pesan kalau kepanjangan, dan kasih tombol link skripsi pertama
-            
-            // Siapkan tombol link untuk dokumen #1 (Paling relevan)
+            // --- OPTIMASI 3: Button Handling ---
+            // Ambil link dari hasil teratas (score tertinggi)
             const topResult = results[0];
             const row = new ActionRowBuilder();
             
-            if (topResult.link && topResult.link.startsWith('http')) {
+            // Validasi URL valid sebelum bikin tombol
+            if (topResult.url && topResult.url.startsWith('http')) {
                 row.addComponents(
                     new ButtonBuilder()
-                        .setLabel('📖 Baca Skripsi Terkait #1')
+                        .setLabel('📖 Baca Skripsi Teratas')
                         .setStyle(ButtonStyle.Link)
-                        .setURL(topResult.link)
+                        .setURL(topResult.url)
                 );
             }
 
-            // Edit pesan loading jadi hasil
-            // Cek panjang karakter discord (max 2000)
+            // Split message logic (tetap dipertahankan)
             if (jawabanAI.length > 1900) {
                 const chunks = jawabanAI.match(/[\s\S]{1,1900}/g) || [];
-                await loadingMsg.edit(`📚 **Hasil Penelusuran Skripsi FKG Unsri:**`);
+                await loadingMsg.edit(`📚 **Hasil Penelusuran:**`);
                 for (const chunk of chunks) {
                     await message.channel.send({ content: chunk });
                 }
-                // Kirim tombol di pesan terpisah terakhir
                 if (row.components.length > 0) await message.channel.send({ components: [row] });
             } else {
                 await loadingMsg.edit({ 
-                    content: `📚 **Hasil Penelusuran Skripsi FKG Unsri:**\n\n${jawabanAI}`,
+                    content: `📚 **Hasil Penelusuran:**\n\n${jawabanAI}`,
                     components: row.components.length > 0 ? [row] : []
                 });
             }
 
         } catch (error) {
             console.error(error);
-            await loadingMsg.edit('❌ Terjadi kesalahan saat mengakses Database Milvus.');
+            // Cek jika loadingMsg masih ada/bisa diedit
+            if (loadingMsg.editable) {
+                await loadingMsg.edit('❌ Terjadi kesalahan sistem (Database/AI Error).');
+            }
         }
     },
 };
