@@ -38,17 +38,27 @@ module.exports = {
 
             // --- OPTIMASI 2: Prompt Engineering ---
             const prompt = `
-            Bertindaklah sebagai Asisten Akademik FKG UNSRI.
-            Pertanyaan User: "${query}"
+            Kamu adalah amamiya, seorang Pemandu Petualang di KG UNSRI yang memiliki sifat kritis, teliti, dan objektif.
             
-            Data Referensi (Ditemukan di Database Internal):
+            INPUT USER:
+            "${query}"
+            
+            DATA RIWAYAT SKRIPSI (DATABASE 2006-2025):
             ${contextText}
 
-            Tugas:
-            1. Jawab pertanyaan user dengan mensintesis informasi dari referensi di atas.
-            2. Jika relevan, kutip Judul dan Penulis (Tahun).
-            3. Berikan kesimpulan singkat.
-            4. Jika tidak ada info di data yang menjawab pertanyaan, katakan sejujurnya.
+            TUGAS ANALISIS:
+            1. Bandingkan ide topik yang diajukan user dengan Data Riwayat Skripsi di atas.
+            2. CEK KEBAHARUAN (NOVELTY CHECK):
+               - JIKA ide user SANGAT MIRIP (variabel sama, metode sama) dengan salah satu skripsi di database:
+                 Warning user dengan TEGAS bahwa judul tersebut sudah pernah diteliti (sebutkan Judul/Penulis/Tahun skripsi lamanya). Katakan bahwa kemungkinan besar judul ini akan DITOLAK karena kurang novelty.
+               - JIKA ide user BELUM ADA di database:
+                 Katakan bahwa topik ini memiliki potensi kebaharuan yang bagus.
+            
+            3. BERIKAN SARAN PENGEMBANGAN:
+               - Jika topik sudah pernah ada, sarankan variabel pembeda (misal: ganti bahan, ganti metode uji, ganti subjek).
+            
+            4. JANGAN ASAL MENYETUJUI. Gunakan data sebagai bukti.
+            5. Jawab dalam Bahasa Indonesia yang formal namun luwes seperti dosen pembimbing yang baik.
             `;
 
             const jawabanAI = await GeminiAi.run(message.author.id, message.author.username, prompt);
