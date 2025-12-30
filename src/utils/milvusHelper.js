@@ -1,5 +1,5 @@
 const { MilvusClient, DataType } = require("@zilliz/milvus2-sdk-node");
-const { GoogleGenerativeAI } = require("@google/genai"); // Library Google GenAI terbaru
+const { GoogleGenerativeAI } = require("@google/generative-ai"); // Library Google GenAI terbaru
 require("dotenv").config();
 
 // Setup Client Milvus
