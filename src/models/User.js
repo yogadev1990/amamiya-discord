@@ -5,6 +5,7 @@ const userSchema = new mongoose.Schema({
     username: String,
     xp: { type: Number, default: 0 },
     level: { type: Number, default: 1 },
+    totalStudy: { type: Number, default: 0 },
     inventory: [
         {
             itemId: String,    // ID unik item, misal: 'sonde_half'

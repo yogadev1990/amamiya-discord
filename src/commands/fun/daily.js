@@ -20,7 +20,7 @@ module.exports = {
             const jam = Math.floor(sisaWaktu / (1000 * 60 * 60));
             const menit = Math.floor((sisaWaktu % (1000 * 60 * 60)) / (1000 * 60));
             
-            return message.reply(`🛑 **Sabar dong!** Uang saku cair lagi dalam **${jam} jam ${menit} menit**.`);
+            return message.reply(`🛑 **Sabar dong!** Uangnya cair lagi dalam **${jam} jam ${menit} menit**.`);
         }
 
         // Beri Hadiah (Random 500 - 1000 Gold)
@@ -32,7 +32,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor(0xF1C40F)
-            .setTitle('💰 UANG SAKU CAIR!')
+            .setTitle('💰 UANG JAJAN CAIR!')
             .setDescription(`Kamu telah melakukan absen harian.\n\n➕ **${reward} Gold**\nTotal Uang: **${user.gold} Gold**`)
             .setFooter({ text: 'Gunakan uang ini buat Gacha ya!' });
 

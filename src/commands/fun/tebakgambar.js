@@ -4,9 +4,10 @@ const User = require('../../models/User'); // Import model User buat kasih hadia
 // --- BANK SOAL ---
 // Kamu bisa tambah link gambar dari Google/Discord/Imgur di sini
 const bankSoal = [
+    // --- INSTRUMEN / ALAT ---
     {
         url: 'https://farmaco.com.pk/wp-content/uploads/2023/10/a-11.png',
-        jawaban: ['kaca mulut', 'mouth mirror', 'mirror'], // Jawaban yang diterima (bisa banyak variasi)
+        jawaban: ['kaca mulut', 'mouth mirror', 'mirror'],
         clue: 'Alat diagnostik dasar untuk melihat bagian gigi yang tersembunyi.'
     },
     {
@@ -15,19 +16,85 @@ const bankSoal = [
         clue: 'Alat ukur kedalaman saku gusi, ada garis-garis ukurannya.'
     },
     {
-        url: 'https://img.medscapestatic.com/pi/meds/ckb/67/26467tn.jpg',
-        jawaban: ['blok mandibula', 'mandibular block', 'suntik blok'],
-        clue: 'Teknik anestesi untuk mematikan rasa separuh rahang bawah.'
+        url: 'https://megmedius.com/wp-content/uploads/2021/12/httpsmegmedius.comproductexplorer-dental-probe.jpg',
+        jawaban: ['sonde', 'explorer', 'half moon', 'sonde half moon', 'dental explorer'],
+        clue: 'Alat ujung runcing (biasanya setengah lingkaran) untuk mencari karies/lubang.'
     },
+    {
+        url: 'https://th.bing.com/th/id/OIP.UuYiQyFSPSfzqgXL88QzLQHaHa?w=200&h=200&c=10&o=6&dpr=1.5&pid=genserp&rm=2',
+        jawaban: ['tang', 'tang cabut', 'forceps', 'extraction forceps'],
+        clue: 'Alat logam seperti penjepit untuk mencabut gigi.'
+    },
+    {
+        url: 'https://th.bing.com/th/id/OIP.wY9MSkGdZp6cqvyfVNl86gAAAA?w=200&h=200&c=10&o=6&pid=genserp&rm=2',
+        jawaban: ['ekskavator', 'excavator', 'spoon excavator'],
+        clue: 'Alat berbentuk sendok kecil untuk mengerok jaringan karies lunak.'
+    },
+
+    // --- PENYAKIT / KELAINAN (PATOLOGI) ---
+    {
+        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Dental_calculus.JPG/640px-Dental_calculus.JPG',
+        jawaban: ['karang gigi', 'calculus', 'tartar', 'kalkulus'],
+        clue: 'Plak yang mengeras (kalsifikasi), biasanya berwarna kuning/coklat di leher gigi.'
+    },
+    {
+        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Geographic_tongue_12.jpg/640px-Geographic_tongue_12.jpg',
+        jawaban: ['geographic tongue', 'lidah peta', 'benign migratory glossitis'],
+        clue: 'Kondisi lidah dengan bercak merah dikelilingi batas putih yang berpindah-pindah mirip peta.'
+    },
+    {
+        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Gingivitis-before.jpg/640px-Gingivitis-before.jpg',
+        jawaban: ['gingivitis', 'radang gusi'],
+        clue: 'Kondisi gusi merah, bengkak, dan mudah berdarah akibat penumpukan plak.'
+    },
+    {
+        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Aphthous_ulcer.jpg/640px-Aphthous_ulcer.jpg',
+        jawaban: ['sariawan', 'stomatitis aphtosa', 'sar', 'aphthous ulcer'],
+        clue: 'Luka kecil di mukosa mulut, warna putih/kuning dengan halo merah, terasa perih.'
+    },
+
+    // --- RADIOLOGI & ANOMALI ---
     {
         url: 'https://www.minthilldentistry.com/wp-content/uploads/panoramic-x-ray-thegem-blog-default.jpg',
         jawaban: ['panoramik', 'panoramic', 'opg', 'foto panoramik'],
-        clue: 'Jenis foto rontgen yang melihat seluruh rahang sekaligus.'
+        clue: 'Jenis foto rontgen yang melihat seluruh rahang (kiri-kanan) sekaligus.'
     },
+    {
+        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Impacted_wisdom_tooth.jpg/640px-Impacted_wisdom_tooth.jpg',
+        jawaban: ['impaksi', 'impacted', 'gigi impaksi', 'gigi bungsu miring'],
+        clue: 'Kondisi gigi gagal tumbuh sempurna karena terhalang gigi lain (lihat rontgen).'
+    },
+    {
+        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Mesiodens.jpg/501px-Mesiodens.jpg',
+        jawaban: ['mesiodens', 'supernumerary teeth'],
+        clue: 'Gigi berlebih (supernumerary) yang tumbuh tepat di tengah dua gigi seri atas.'
+    },
+    {
+        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Periapical_abscess.jpg/640px-Periapical_abscess.jpg',
+        jawaban: ['abses', 'abses periapikal', 'periapical abscess'],
+        clue: 'Bayangan radiolusent (hitam) bulat di ujung akar gigi pada foto rontgen, tanda infeksi.'
+    },
+
+    // --- BAHAN & PERAWATAN (TREATMENT) ---
     {
         url: 'https://www.cranbournenorthdental.com.au/wp-content/uploads/2017/12/amalgam-fillings-blog.jpg',
         jawaban: ['amalgam', 'tambalan amalgam', 'filling amalgam'],
-        clue: 'Bahan tambalan jadul berwarna perak/hitam.'
+        clue: 'Bahan tambalan konvensional berwarna perak/hitam.'
+    },
+    {
+        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/Dental_bridge.jpg/640px-Dental_bridge.jpg',
+        jawaban: ['bridge', 'jembatan gigi', 'dental bridge'],
+        clue: 'Gigi tiruan cekat yang mengganti gigi hilang dengan menyangga pada gigi sebelahnya.'
+    },
+    {
+        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Dental_braces_01.jpg/640px-Dental_braces_01.jpg',
+        jawaban: ['behel', 'kawat gigi', 'braces', 'orthodontic'],
+        clue: 'Perawatan ortodonti cekat menggunakan bracket dan kawat untuk merapikan gigi.'
+    },
+    {
+        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Endo_files.jpg/640px-Endo_files.jpg',
+        jawaban: ['file', 'file endo', 'jarum saluran akar', 'k-file'],
+        clue: 'Jarum kecil berulir untuk membersihkan saluran akar gigi (perawatan saraf).'
     }
 ];
 
@@ -43,7 +110,7 @@ module.exports = {
             .setTitle('🖼️ TEBAK GAMBAR DENTAL')
             .setDescription('Apa nama alat/tindakan/diagnosa pada gambar di bawah ini?\n\n⏱️ **Waktu: 30 Detik!**\n💡 Ketik jawabanmu langsung di chat.')
             .setImage(soal.url)
-            .setFooter({ text: 'Jawab dengan cepat & tepat!' });
+            .setFooter({ text: `Clue: ${soal.clue}` });
 
         await message.reply({ embeds: [embed] });
 

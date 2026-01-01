@@ -36,7 +36,8 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor(0x00A8FF)
             .setTitle(`📚 Pencarian Jurnal: "${query}"`)
-            .setDescription('Klik tombol di bawah untuk langsung membuka hasil pencarian di browser.');
+            .setDescription('Klik tombol di bawah untuk langsung membuka hasil pencarian di browser.')
+            .setFooter({ text: 'Amamiya KG UNSRI' });
 
         await message.reply({ embeds: [embed], components: [row] });
     },

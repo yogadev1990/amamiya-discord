@@ -91,17 +91,6 @@ class GeminiAi {
       user.chatHistory.push({ role: 'model', parts: [{ text: finalResponseText }] });
       user.xp += 10; // Tambah 10 XP setiap tanya
 
-    const xpNeeded = user.level * 100;
-      if (user.xp >= xpNeeded) {
-          user.level += 1;
-          user.xp = user.xp - xpNeeded; // Reset XP atau simpan sisanya
-          
-          // (Opsional) Kirim notifikasi level up ke chat?
-          // Agak tricky di sini karena kita harus return text response.
-          // Kita bisa tempelkan ucapan selamat di akhir jawaban AI.
-          finalResponseText += `\n\n🎉 **LEVEL UP!** Selamat, kamu naik ke Semester ${user.level}!`;
-      }
-
       user.lastInteraction = new Date();
       await user.save(); // Simpan ke MongoDB
 

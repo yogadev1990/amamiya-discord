@@ -4,7 +4,7 @@ const User = require('../../models/User');
 
 module.exports = {
     name: 'duel',
-    description: 'Tantang temanmu adu kecerdasan FKG (Taruhan 200 Gold)',
+    description: 'Tantang temanmu adu kecerdasan KG (Taruhan 200 Gold)',
     async execute(message, args) {
         // --- 1. VALIDASI LAWAN ---
         const challenger = message.author;
@@ -109,7 +109,7 @@ module.exports = {
                 // --- 6. LOGIKA PERMAINAN (SIAPA CEPAT DIA DAPAT) ---
                 const collector = msgSoal.createMessageComponentCollector({
                     filter: i => [challenger.id, opponent.id].includes(i.user.id), // Hanya 2 petarung
-                    time: 20000, // Waktu jawab 20 detik
+                    time: 60000, // Waktu jawab 20 detik
                     max: 1 // Collector berhenti setelah ada 1 orang menekan tombol
                 });
 
