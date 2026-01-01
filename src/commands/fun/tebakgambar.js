@@ -33,22 +33,22 @@ const bankSoal = [
 
     // --- PENYAKIT / KELAINAN (PATOLOGI) ---
     {
-        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Dental_calculus.JPG/640px-Dental_calculus.JPG',
+        url: 'https://th.bing.com/th/id/OIP.yh3VQJ-7WqD5kZs_DB4MYAHaDr?w=200&h=200&c=10&o=6&dpr=1.5&pid=genserp&rm=2',
         jawaban: ['karang gigi', 'calculus', 'tartar', 'kalkulus'],
         clue: 'Plak yang mengeras (kalsifikasi), biasanya berwarna kuning/coklat di leher gigi.'
     },
     {
-        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Geographic_tongue_12.jpg/640px-Geographic_tongue_12.jpg',
+        url: 'https://tse3.mm.bing.net/th/id/OIP.7kgbwV9m1yFoLgmqx8PW6wHaE8?rs=1&pid=ImgDetMain&o=7&rm=3',
         jawaban: ['geographic tongue', 'lidah peta', 'benign migratory glossitis'],
         clue: 'Kondisi lidah dengan bercak merah dikelilingi batas putih yang berpindah-pindah mirip peta.'
     },
     {
-        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Gingivitis-before.jpg/640px-Gingivitis-before.jpg',
+        url: 'https://tse2.mm.bing.net/th/id/OIP.LOcQFSAlwE_dCftLpAiGZAHaFe?rs=1&pid=ImgDetMain&o=7&rm=3',
         jawaban: ['gingivitis', 'radang gusi'],
         clue: 'Kondisi gusi merah, bengkak, dan mudah berdarah akibat penumpukan plak.'
     },
     {
-        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Aphthous_ulcer.jpg/640px-Aphthous_ulcer.jpg',
+        url: 'https://image.slidesharecdn.com/recurrentaphthousstomatitis-160310075933/95/recurrent-aphthous-stomatitis-5-638.jpg?cb=1457596895',
         jawaban: ['sariawan', 'stomatitis aphtosa', 'sar', 'aphthous ulcer'],
         clue: 'Luka kecil di mukosa mulut, warna putih/kuning dengan halo merah, terasa perih.'
     },
@@ -60,17 +60,17 @@ const bankSoal = [
         clue: 'Jenis foto rontgen yang melihat seluruh rahang (kiri-kanan) sekaligus.'
     },
     {
-        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Impacted_wisdom_tooth.jpg/640px-Impacted_wisdom_tooth.jpg',
+        url: 'https://res.cloudinary.com/dk0z4ums3/image/upload/v1703300268/attached_image/penyakit/kesehatan-gigi-dan-mulut/impaksi-gigi-0-alomedika.jpg',
         jawaban: ['impaksi', 'impacted', 'gigi impaksi', 'gigi bungsu miring'],
         clue: 'Kondisi gigi gagal tumbuh sempurna karena terhalang gigi lain (lihat rontgen).'
     },
     {
-        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Mesiodens.jpg/501px-Mesiodens.jpg',
+        url: 'https://tse2.mm.bing.net/th/id/OIP.hvHrEiP038bSOeyUzR8-qgHaEH?rs=1&pid=ImgDetMain&o=7&rm=3',
         jawaban: ['mesiodens', 'supernumerary teeth'],
         clue: 'Gigi berlebih (supernumerary) yang tumbuh tepat di tengah dua gigi seri atas.'
     },
     {
-        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Periapical_abscess.jpg/640px-Periapical_abscess.jpg',
+        url: 'https://tse1.mm.bing.net/th/id/OIP.WeajZ7vRn0mo1J8X7NvoxwHaFq?rs=1&pid=ImgDetMain&o=7&rm=3',
         jawaban: ['abses', 'abses periapikal', 'periapical abscess'],
         clue: 'Bayangan radiolusent (hitam) bulat di ujung akar gigi pada foto rontgen, tanda infeksi.'
     },
@@ -82,17 +82,17 @@ const bankSoal = [
         clue: 'Bahan tambalan konvensional berwarna perak/hitam.'
     },
     {
-        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/03/Dental_bridge.jpg/640px-Dental_bridge.jpg',
+        url: 'https://tse3.mm.bing.net/th/id/OIP.fh0zKokxHuqMUTT8j9q0rQHaED?rs=1&pid=ImgDetMain&o=7&rm=3',
         jawaban: ['bridge', 'jembatan gigi', 'dental bridge'],
         clue: 'Gigi tiruan cekat yang mengganti gigi hilang dengan menyangga pada gigi sebelahnya.'
     },
     {
-        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Dental_braces_01.jpg/640px-Dental_braces_01.jpg',
+        url: 'https://tse3.mm.bing.net/th/id/OIP.bOOxcB2S_4GgCnj6NylkGwHaE8?rs=1&pid=ImgDetMain&o=7&rm=3',
         jawaban: ['behel', 'kawat gigi', 'braces', 'orthodontic'],
         clue: 'Perawatan ortodonti cekat menggunakan bracket dan kawat untuk merapikan gigi.'
     },
     {
-        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Endo_files.jpg/640px-Endo_files.jpg',
+        url: 'https://www.premierdentalco.com/wp-content/uploads/2015/09/k-files2.jpg',
         jawaban: ['file', 'file endo', 'jarum saluran akar', 'k-file'],
         clue: 'Jarum kecil berulir untuk membersihkan saluran akar gigi (perawatan saraf).'
     }
