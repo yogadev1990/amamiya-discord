@@ -4,8 +4,8 @@ FROM node:18-alpine
 # Set folder kerja di dalam container
 WORKDIR /app
 
-# Install dependencies sistem (opsional, jaga-jaga butuh buat canvas/pdf)
-RUN apk add --no-cache build-base g++ cairo-dev pango-dev giflib-dev
+# Install dependencies sistem (opsional, jaga-jaga butuh buat canvas/pdf dan ffmpeg)
+RUN apk add --no-cache build-base g++ cairo-dev pango-dev giflib-dev ffmpeg
 
 # Copy package.json dulu (biar cache layer optimal)
 COPY package.json ./
