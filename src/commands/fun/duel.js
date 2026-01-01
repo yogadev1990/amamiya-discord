@@ -1,4 +1,10 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+const {
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    ComponentType
+} = require('discord.js');
 const GeminiAi = require('../../utils/geminiHelper');
 const User = require('../../models/User');
 
@@ -16,12 +22,24 @@ module.exports = {
 
         // --- 2. CEK UANG (EKONOMI) ---
         // Kita butuh data database kedua pemain untuk cek saldo
-        let dataChallenger = await User.findOne({ userId: challenger.id });
-        let dataOpponent = await User.findOne({ userId: opponent.id });
+        let dataChallenger = await User.findOne({
+            userId: challenger.id
+        });
+        let dataOpponent = await User.findOne({
+            userId: opponent.id
+        });
 
         // Buat data baru jika belum ada
-        if (!dataChallenger) dataChallenger = await User.create({ userId: challenger.id, username: challenger.username, gold: 1000 });
-        if (!dataOpponent) dataOpponent = await User.create({ userId: opponent.id, username: opponent.username, gold: 1000 });
+        if (!dataChallenger) dataChallenger = await User.create({
+            userId: challenger.id,
+            username: challenger.username,
+            gold: 1000
+        });
+        if (!dataOpponent) dataOpponent = await User.create({
+            userId: opponent.id,
+            username: opponent.username,
+            gold: 1000
+        });
 
         const TARUHAN = 200;
 
@@ -38,14 +56,20 @@ module.exports = {
             .setTitle('⚔️ DENTAL DUEL CHALLENGE')
             .setDescription(`**${challenger.username}** menantang **${opponent.username}**!\n\n💰 **Taruhan:** ${TARUHAN} Gold\n🧠 **Topik:** Kedokteran Gigi Umum\n\n*Siapa cepat & benar, dia yang menang!*`)
             .setThumbnail('https://cdn-icons-png.flaticon.com/512/2821/2821876.png') // Ikon pedang silang
-            .setFooter({ text: 'Menunggu lawan menerima...' });
+            .setFooter({
+                text: 'Menunggu lawan menerima...'
+            });
 
         const btnInvite = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('accept').setLabel('Gasss! Terima').setStyle(ButtonStyle.Success),
             new ButtonBuilder().setCustomId('decline').setLabel('Takut ah').setStyle(ButtonStyle.Secondary)
         );
 
-        const msgInvite = await message.channel.send({ content: `<@${opponent.id}>`, embeds: [embedInvite], components: [btnInvite] });
+        const msgInvite = await message.channel.send({
+            content: `<@${opponent.id}>`,
+            embeds: [embedInvite],
+            components: [btnInvite]
+        });
 
         // --- 4. TUNGGU RESPON LAWAN ---
         try {
@@ -56,19 +80,23 @@ module.exports = {
             });
 
             if (confirmation.customId === 'decline') {
-                return confirmation.update({ content: `🏃 **${opponent.username}** menolak tantangan (Mental kerupuk!).`, components: [], embeds: [] });
+                return confirmation.update({
+                    content: `🏃 **${opponent.username}** menolak tantangan (Mental kerupuk!).`,
+                    components: [],
+                    embeds: []
+                });
             }
 
             // Jika DITERIMA
-            await confirmation.update({ 
-                content: '🔥 **DUEL DITERIMA!**\nSedang menyusun soal, bersiaplah...', 
-                components: [], 
-                embeds: [] 
+            await confirmation.update({
+                content: '🔥 **DUEL DITERIMA!**\nSedang menyusun soal, bersiaplah...',
+                components: [],
+                embeds: []
             });
 
             // --- 5. GENERATE SOAL (GEMINI) ---
             const prompt = `
-            Buatkan 1 soal pilihan ganda SULIT/HOTS tentang Ilmu Kedokteran Gigi (Klinis, Anatomi, atau Farmakologi).
+            Buatkan 1 soal pilihan ganda tingkat SEDANG tentang Ilmu Kedokteran Gigi untuk mahasiswa S1 (Anatomi, Farmakologi, atau Dasar Kedokteran Gigi).
             
             Output WAJIB JSON murni tanpa markdown:
             {
@@ -80,8 +108,7 @@ module.exports = {
                     "D": "Jawaban D"
                 },
                 "kunci": "A" (Hanya satu huruf A/B/C/D)
-            }
-            `;
+            }`;
 
             let rawData;
             try {
@@ -95,7 +122,9 @@ module.exports = {
                     .setColor(0xF1C40F) // Kuning Emas
                     .setTitle('🥊 FIGHT!')
                     .setDescription(`**${quizData.soal}**\n\n🇦 ${quizData.opsi.A}\n🇧 ${quizData.opsi.B}\n🇨 ${quizData.opsi.C}\n🇩 ${quizData.opsi.D}`)
-                    .setFooter({ text: 'Klik jawabanmu secepat mungkin!' });
+                    .setFooter({
+                        text: 'Klik jawabanmu secepat mungkin!'
+                    });
 
                 const btnSoal = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId('A').setLabel('A').setStyle(ButtonStyle.Primary),
@@ -104,12 +133,15 @@ module.exports = {
                     new ButtonBuilder().setCustomId('D').setLabel('D').setStyle(ButtonStyle.Primary),
                 );
 
-                const msgSoal = await message.channel.send({ embeds: [embedSoal], components: [btnSoal] });
+                const msgSoal = await message.channel.send({
+                    embeds: [embedSoal],
+                    components: [btnSoal]
+                });
 
                 // --- 6. LOGIKA PERMAINAN (SIAPA CEPAT DIA DAPAT) ---
                 const collector = msgSoal.createMessageComponentCollector({
                     filter: i => [challenger.id, opponent.id].includes(i.user.id), // Hanya 2 petarung
-                    time: 60000, // Waktu jawab 20 detik
+                    time: 60000, // Waktu jawab 60 detik
                     max: 1 // Collector berhenti setelah ada 1 orang menekan tombol
                 });
 
@@ -117,21 +149,21 @@ module.exports = {
                     const jawabanUser = interaction.customId;
                     const penjawab = interaction.user;
                     const musuh = interaction.user.id === challenger.id ? opponent : challenger;
-                    
+
                     // Logic Database Update
-                    // Kita fetch ulang biar datanya paling update
-                    const dbPenjawab = await User.findOne({ userId: penjawab.id });
-                    const dbMusuh = await User.findOne({ userId: musuh.id });
+                    const dbPenjawab = await User.findOne({
+                        userId: penjawab.id
+                    });
+                    const dbMusuh = await User.findOne({
+                        userId: musuh.id
+                    });
 
                     if (jawabanUser === quizData.kunci) {
                         // --- MENANG ---
-                        // Transfer Uang
-                        dbPenjawab.gold += TARUHAN; // Balik modal + Untung (Total +200 dari saldo awal sblm game, tapi disini logikanya +200 dari musuh)
+                        dbPenjawab.gold += TARUHAN;
                         dbMusuh.gold -= TARUHAN;
-                        
-                        // Tambah XP
-                        dbPenjawab.xp += 150; 
-                        
+                        dbPenjawab.xp += 150;
+
                         await dbPenjawab.save();
                         await dbMusuh.save();
 
@@ -141,11 +173,13 @@ module.exports = {
                             .setDescription(`Jawaban Benar: **${quizData.kunci}**\n\n💰 **+${TARUHAN} Gold** (Total: ${dbPenjawab.gold})\n✨ **+150 XP**\n\n💀 **${musuh.username}** kehilangan ${TARUHAN} Gold.`)
                             .setThumbnail(penjawab.displayAvatarURL());
 
-                        await interaction.update({ embeds: [winEmbed], components: [] });
+                        await interaction.update({
+                            embeds: [winEmbed],
+                            components: []
+                        });
 
                     } else {
                         // --- SALAH (BLUNDER) ---
-                        // Kalau penjawab salah, musuh otomatis menang
                         dbPenjawab.gold -= TARUHAN;
                         dbMusuh.gold += TARUHAN;
                         dbMusuh.xp += 150;
@@ -159,13 +193,20 @@ module.exports = {
                             .setDescription(`Jawaban yang dipilih: **${jawabanUser}** (Salah)\nKunci Jawaban: **${quizData.kunci}**\n\nKarena salah, **${musuh.username}** otomatis MENANG!\n\n💰 **${musuh.username}** dapat +${TARUHAN} Gold.`)
                             .setThumbnail(musuh.displayAvatarURL());
 
-                        await interaction.update({ embeds: [loseEmbed], components: [] });
+                        await interaction.update({
+                            embeds: [loseEmbed],
+                            components: []
+                        });
                     }
                 });
 
                 collector.on('end', collected => {
                     if (collected.size === 0) {
-                        msgSoal.edit({ content: '⌛ **Waktu Habis!** Kalian berdua payah, tidak ada yang menjawab.', components: [], embeds: [] });
+                        msgSoal.edit({
+                            content: '⌛ **Waktu Habis!** Kalian berdua payah, tidak ada yang menjawab.',
+                            components: [],
+                            embeds: []
+                        });
                     }
                 });
 
@@ -176,7 +217,11 @@ module.exports = {
 
         } catch (e) {
             // Error handling untuk invite (Waktu habis/dicancel)
-            msgInvite.edit({ content: '❌ Tantangan kadaluarsa. Lawan tidak merespon.', components: [], embeds: [] });
+            msgInvite.edit({
+                content: '❌ Tantangan kadaluarsa. Lawan tidak merespon.',
+                components: [],
+                embeds: []
+            });
         }
     },
 };
