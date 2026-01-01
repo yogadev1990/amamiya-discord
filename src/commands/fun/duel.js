@@ -12,9 +12,12 @@ module.exports = {
     name: 'duel',
     description: 'Tantang temanmu adu kecerdasan KG (Taruhan 200 Gold)',
     async execute(message, args) {
+        console.log('Duel command executed'); // Log awal
+
         // --- 1. VALIDASI LAWAN ---
         const challenger = message.author;
         const opponent = message.mentions.users.first();
+        console.log('Challenger:', challenger.id, 'Opponent:', opponent ? opponent.id : 'None');
 
         if (!opponent) return message.reply('⚠️ **Format Salah!** Tag lawanmu.\nContoh: `!duel @Revanda`');
         if (opponent.bot) return message.reply('🤖 Jangan lawan bot, aku terlalu pintar untukmu.');
@@ -28,6 +31,7 @@ module.exports = {
         let dataOpponent = await User.findOne({
             userId: opponent.id
         });
+        console.log('Data Challenger:', dataChallenger, 'Data Opponent:', dataOpponent);
 
         // Buat data baru jika belum ada
         if (!dataChallenger) dataChallenger = await User.create({
@@ -70,6 +74,7 @@ module.exports = {
             embeds: [embedInvite],
             components: [btnInvite]
         });
+        console.log('Invitation sent');
 
         // --- 4. TUNGGU RESPON LAWAN ---
         try {
@@ -78,6 +83,8 @@ module.exports = {
                 time: 30000, // 30 detik batas waktu terima
                 componentType: ComponentType.Button
             });
+
+            console.log('Confirmation received:', confirmation.customId);
 
             if (confirmation.customId === 'decline') {
                 return confirmation.update({
@@ -108,14 +115,18 @@ module.exports = {
                     "D": "Jawaban D"
                 },
                 "kunci": "A" (Hanya satu huruf A/B/C/D)
-            }`;
+            }
+            `;
 
             let rawData;
             try {
                 rawData = await GeminiAi.run(challenger.id, challenger.username, prompt);
+                console.log('Raw data from Gemini:', rawData);
+
                 // Bersihkan Markdown JSON kalau ada
                 const cleanJson = rawData.replace(/```json/g, '').replace(/```/g, '').trim();
                 const quizData = JSON.parse(cleanJson);
+                console.log('Parsed quiz data:', quizData);
 
                 // TAMPILKAN SOAL
                 const embedSoal = new EmbedBuilder()
@@ -137,6 +148,7 @@ module.exports = {
                     embeds: [embedSoal],
                     components: [btnSoal]
                 });
+                console.log('Quiz sent to channel');
 
                 // --- 6. LOGIKA PERMAINAN (SIAPA CEPAT DIA DAPAT) ---
                 const collector = msgSoal.createMessageComponentCollector({
@@ -146,11 +158,11 @@ module.exports = {
                 });
 
                 collector.on('collect', async interaction => {
+                    console.log('Interaction collected:', interaction.customId);
                     const jawabanUser = interaction.customId;
                     const penjawab = interaction.user;
                     const musuh = interaction.user.id === challenger.id ? opponent : challenger;
 
-                    // Logic Database Update
                     const dbPenjawab = await User.findOne({
                         userId: penjawab.id
                     });
@@ -160,7 +172,8 @@ module.exports = {
 
                     if (jawabanUser === quizData.kunci) {
                         // --- MENANG ---
-                        dbPenjawab.gold += TARUHAN;
+                        // Transfer Uang
+                        dbPenjawab.gold += TARUHAN; // Balik modal + Untung (Total +200 dari saldo awal sblm game, tapi disini logikanya +200 dari musuh)
                         dbMusuh.gold -= TARUHAN;
                         dbPenjawab.xp += 150;
 
@@ -180,6 +193,7 @@ module.exports = {
 
                     } else {
                         // --- SALAH (BLUNDER) ---
+                        // Kalau penjawab salah, musuh otomatis menang
                         dbPenjawab.gold -= TARUHAN;
                         dbMusuh.gold += TARUHAN;
                         dbMusuh.xp += 150;
@@ -201,6 +215,7 @@ module.exports = {
                 });
 
                 collector.on('end', collected => {
+                    console.log('Collector ended. Collected size:', collected.size);
                     if (collected.size === 0) {
                         msgSoal.edit({
                             content: '⌛ **Waktu Habis!** Kalian berdua payah, tidak ada yang menjawab.',
@@ -211,12 +226,12 @@ module.exports = {
                 });
 
             } catch (err) {
-                console.error(err);
+                console.error('Error generating quiz:', err);
                 message.channel.send('❌ Gagal memuat soal. Kemungkinan Gemini lagi pusing.');
             }
 
         } catch (e) {
-            // Error handling untuk invite (Waktu habis/dicancel)
+            console.error('Error during invitation phase:', e);
             msgInvite.edit({
                 content: '❌ Tantangan kadaluarsa. Lawan tidak merespon.',
                 components: [],
