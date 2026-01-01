@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits, Events } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, NoSubscriberBehavior, VoiceConnectionStatus } = require('@discordjs/voice');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, NoSubscriberBehavior, VoiceConnectionStatus, entersState } = require('@discordjs/voice');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
@@ -9,9 +9,10 @@ const client = new Client({
 
 // --- KONFIGURASI ---
 const RADIO_CHANNEL_ID = '1455761578178908170'; 
-const LOFI_URL = 'https://stream-178.zeno.fm/f3wvbbqmdg8uv';
 
-// --- FUNGSI RADIO ---
+// PERBAIKAN 1: Gunakan HTTP (bukan HTTPS) dan subdomain langsung biar stabil
+const LOFI_URL = 'http://stream-178.zeno.fm/f3wvbbqmdg8uv';
+
 async function startRadio(guild) {
     const channel = guild.channels.cache.get(RADIO_CHANNEL_ID);
     if (!channel) return console.error("❌ Channel Radio tidak ditemukan!");
@@ -20,17 +21,31 @@ async function startRadio(guild) {
         channelId: channel.id,
         guildId: guild.id,
         adapterCreator: guild.voiceAdapterCreator,
+        selfDeaf: false, // Biar bot dianggap aktif mendengarkan
     });
 
     const player = createAudioPlayer({
-        behaviors: { noSubscriber: NoSubscriberBehavior.Play } // Tetap main walau gak ada orang
+        behaviors: { 
+            noSubscriber: NoSubscriberBehavior.Play,
+            maxMissedFrames: 250 // Toleransi lag lebih tinggi (Penting buat VPS)
+        } 
     });
 
-    // Fungsi bikin stream baru (biar fresh)
     const playStream = () => {
-        const resource = createAudioResource(LOFI_URL, { inlineVolume: true });
-        resource.volume.setVolume(0.5); // Volume 50%
-        player.play(resource);
+        try {
+            console.log('🔄 Mengambil audio stream...');
+            
+            // PERBAIKAN 2: Matikan Inline Volume (Set ke false)
+            // Biarkan suara RAW mengalir biar HP gak putus-putus
+            const resource = createAudioResource(LOFI_URL, { 
+                inlineVolume: false 
+            });
+            
+            player.play(resource);
+        } catch (e) {
+            console.error("Gagal play stream:", e);
+            setTimeout(playStream, 5000); // Coba lagi nanti kalau error
+        }
     };
 
     playStream();
@@ -38,48 +53,47 @@ async function startRadio(guild) {
 
     console.log(`🎶 Radio 24/7 Berjalan di: ${channel.name}`);
 
-    // --- HANDLING RECONNECT ---
-    
-    // 1. Kalau lagu berhenti (buffer habis), mainkan lagi
-    player.on(AudioPlayerStatus.Idle, () => {
-        console.log('🔄 Stream buffer refresh...');
-        playStream();
+    // --- EVENT LISTENER ---
+
+    // Tambahan: Log kalau berhasil nyanyi
+    player.on(AudioPlayerStatus.Playing, () => {
+        console.log('▶️  Radio sedang memutar lagu!');
     });
 
-    // 2. Kalau ada error di player
+    // PERBAIKAN 3: Kasih Jeda Waktu saat Reconnect (Anti-Loop)
+    player.on(AudioPlayerStatus.Idle, () => {
+        console.log('⚠️ Buffer habis/Stream putus. Reconnect dalam 5 detik...');
+        setTimeout(() => {
+            playStream();
+        }, 5000); // JEDA 5 DETIK (Wajib!)
+    });
+
     player.on('error', error => {
         console.error('⚠️ Player Error:', error.message);
-        setTimeout(playStream, 5000); // Coba lagi dalam 5 detik
+        // Gak perlu panggil playStream disini, karena habis error dia bakal ke state IDLE otomatis
     });
 
-    // 3. Kalau Bot Terputus dari VC (Koneksi DC)
     connection.on(VoiceConnectionStatus.Disconnected, async () => {
-        console.log("⚠️ Koneksi putus! Mencoba reconnect...");
         try {
             await Promise.race([
                 entersState(connection, VoiceConnectionStatus.Signalling, 5000),
                 entersState(connection, VoiceConnectionStatus.Connecting, 5000),
             ]);
-            // Kalau berhasil reconnect, aman.
         } catch (error) {
-            // Kalau gagal total, hancurkan koneksi dan mulai dari awal
+            console.log("🔌 Koneksi putus total. Restarting radio system...");
             connection.destroy();
-            startRadio(guild);
+            setTimeout(() => startRadio(guild), 10000); // Tunggu 10 detik biar gak spam join/leave
         }
     });
 }
 
-// --- JALANKAN SAAT BOT NYALA ---
 client.once(Events.ClientReady, async () => {
     console.log(`📻 Radio System Online (${client.user.tag})`);
-    
-    // Cari Guild (Server) dimana channel itu berada
     const channel = client.channels.cache.get(RADIO_CHANNEL_ID);
-    if (channel) {
-        startRadio(channel.guild);
-    } else {
-        console.log("❌ Bot belum join server atau ID Channel salah.");
-    }
+    if (channel) startRadio(channel.guild);
 });
+
+// Anti Crash biar bot utama gak ikut mati kalau radio error
+process.on('uncaughtException', (err) => console.log('Radio Error Handler:', err.message));
 
 client.login(process.env.RADIO_TOKEN);
