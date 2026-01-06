@@ -1,48 +1,45 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-    userId: { type: String, required: true, unique: true },
-    username: String,
+    // --- Identitas Utama ---
+    userId: { type: String, required: true, unique: true }, // ID Discord
+    robloxId: { type: String, default: null }, // ID Roblox (Jembatannya!)
+    
+    username: String, // Username Discord
+    robloxUsername: String, // Username Roblox (Opsional, buat display aja)
+
+    // --- Statistik (Sinkron Discord <-> Roblox) ---
     xp: { type: Number, default: 0 },
     level: { type: Number, default: 1 },
-    totalStudy: { type: Number, default: 0 },
+    gold: { type: Number, default: 1000 }, // Uang berlaku di dua dunia
+    
+    // --- Inventory (Sinkron!) ---
+    // Kalau dia beli alat di Discord, alatnya muncul di Roblox
     inventory: [
         {
-            itemId: String,    // ID unik item, misal: 'sonde_half'
-            itemName: String,  // Nama tampilan: 'Sonde Half Moon'
-            rarity: String,    // Common, Rare, Epic, Legendary
+            itemId: String,    // Cth: 'high_speed_drill'
+            itemName: String,  // Cth: 'High Speed Drill'
+            rarity: String,    
             obtainedAt: { type: Date, default: Date.now }
         }
     ],
-    gold: { type: Number, default: 1000 }, // Modal awal mahasiswa baru
-    lastDaily: { type: Date, default: null }, // Kapan terakhir absen
+
+    // --- Data Akademik (Discord Only) ---
+    totalStudy: { type: Number, default: 0 },
+    lastDaily: { type: Date, default: null },
+    schedule: [
+        { hari: String, jam: String, matkul: String }
+    ],
+
+    // --- History Chat (Gabungan Chat Discord + Chat sama Budiono di Roblox) ---
     chatHistory: [
         {
+            source: { type: String, enum: ['discord', 'roblox'] }, // Tau ini chat dari mana
             role: { type: String, enum: ['user', 'model'] },
-            parts: [
-                { 
-                    text: String,
-                    // TAMBAHAN PENTING: Struktur untuk file (Gambar/PDF)
-                    inlineData: {
-                        data: String,
-                        mimeType: String
-                    }
-                }
-            ],
+            parts: [{ text: String }],
             timestamp: { type: Date, default: Date.now }
         }
-    ],
-    lastInteraction: { type: Date, default: Date.now },
-    
-    // --- TAMBAHAN BARU DI SINI ---
-    schedule: [
-        {
-            hari: String,    // senin, selasa...
-            jam: String,     // 08:00
-            matkul: String   // Blok 9: Etika
-        }
     ]
-    // -----------------------------
 });
 
 module.exports = mongoose.model('User', userSchema);

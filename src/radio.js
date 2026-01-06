@@ -44,7 +44,7 @@ const client = new Client({
 });
 
 /* =======================
-   RADIO CORE
+   RADIO CORE (REVISED)
 ======================= */
 async function startRadio(guild) {
     const channel = guild.channels.cache.get(RADIO_CHANNEL_ID);
@@ -61,6 +61,18 @@ async function startRadio(guild) {
     });
 
     const player = createAudioPlayer();
+    
+    // Debugging Player Status
+    player.on(AudioPlayerStatus.Playing, () => {
+        console.log('✅ Radio sedang memutar audio!');
+    });
+    player.on(AudioPlayerStatus.Buffering, () => {
+        console.log('⏳ Radio sedang buffering...');
+    });
+    player.on('error', error => {
+        console.error('❌ Error pada AudioPlayer:', error.message);
+    });
+
     connection.subscribe(player);
 
     let ffmpeg = null;
@@ -71,31 +83,41 @@ async function startRadio(guild) {
             ffmpeg = null;
         }
 
+        console.log("🔄 Memulai spawn FFmpeg...");
+
         const args = [
             '-reconnect', '1',
             '-reconnect_streamed', '1',
             '-reconnect_delay_max', '5',
-
-            '-headers',
-            'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n' +
-            'Accept: */*\r\n' +
-            'Connection: keep-alive\r\n',
-
+            '-headers', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\nAccept: */*\r\nConnection: keep-alive\r\n',
             '-i', STREAM_URL,
-
             '-vn',
             '-f', 's16le',
             '-ar', '48000',
             '-ac', '2',
-
-            '-bufsize', '64k', // Tambahkan buffer
-            '-analyzeduration', '0', // Kurangi waktu analisis
-
+            '-bufsize', '64k',
             'pipe:1',
         ];
 
-        ffmpeg = spawn(ffmpegPath, args, {
-            stdio: ['ignore', 'pipe', 'pipe'],
+        // Pastikan path ffmpeg benar
+        ffmpeg = spawn('ffmpeg', args, {
+            stdio: ['ignore', 'pipe', 'pipe'], // pipe stderr juga buat debug
+        });
+
+        // >>> TANGKAP ERROR FFMPEG (PENTING) <<<
+        ffmpeg.on('error', (err) => {
+             console.error('❌ GAGAL MENJALANKAN FFMPEG (Binary tidak ditemukan?):', err);
+        });
+
+        ffmpeg.stderr.on('data', (data) => {
+             // Uncomment baris bawah kalau mau liat log ffmpeg yang bejibun (buat debug doang)
+             // console.log(`ffmpeg log: ${data}`); 
+        });
+
+        ffmpeg.on('close', (code) => {
+             if (code !== 0 && code !== null) {
+                 console.log(`⚠️ FFmpeg berhenti dengan code ${code}`);
+             }
         });
 
         const prismStream = new prism.opus.Encoder({
@@ -104,6 +126,12 @@ async function startRadio(guild) {
             frameSize: 960,
         });
 
+        // Error handling prism
+        prismStream.on('error', (err) => {
+            console.error('❌ Prism Error:', err);
+        });
+
+        // Pipe output
         ffmpeg.stdout.pipe(prismStream);
 
         const resource = createAudioResource(prismStream, {
@@ -114,7 +142,9 @@ async function startRadio(guild) {
     };
 
     player.on(AudioPlayerStatus.Idle, () => {
-        play();
+        console.log("⚠️ Audio mati (Idle), mencoba restart stream...");
+        // Tunggu sebentar sebelum restart biar gak spamming kalau link mati
+        setTimeout(play, 5000); 
     });
 
     connection.on(VoiceConnectionStatus.Disconnected, async () => {
@@ -125,6 +155,7 @@ async function startRadio(guild) {
             ]);
         } catch {
             connection.destroy();
+            console.log("🔌 Koneksi putus, reconnecting in 8s...");
             setTimeout(() => startRadio(guild), 8000);
         }
     });
