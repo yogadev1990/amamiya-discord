@@ -5,6 +5,34 @@ const User = require('../../models/User');
 // Tips: ID harus unik, jangan pakai spasi
 const shopItems = [
     { 
+        id: 'medical_tablet', 
+        name: '📱 Tablet Rekam Medis', 
+        price: 0, 
+        desc: 'Wajib punya! Gunakan untuk anamnesis pasien AI di Roblox.',
+        type: 'tool' 
+    },
+    { 
+        id: 'diagnostic_set', 
+        name: '🩺 Diagnostic Set Basic', 
+        price: 500, 
+        desc: 'Berisi Kaca Mulut & Sonde. Syarat melakukan pemeriksaan fisik.',
+        type: 'tool' 
+    },
+    { 
+        id: 'jas_lab', 
+        name: '🥼 Jas Lab Putih', 
+        price: 1500, 
+        desc: 'Seragam wajib praktikum. Menambah wibawa dokter.',
+        type: 'cosmetic' 
+    },
+    { 
+        id: 'highspeed_drill', 
+        name: '🔫 High Speed Drill', 
+        price: 3000, 
+        desc: 'Bor kecepatan tinggi untuk prosedur penambalan gigi.',
+        type: 'tool' 
+    },
+    { 
         id: 'kopi', 
         name: '☕ Kopi Sachet', 
         price: 200, 
