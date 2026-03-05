@@ -21,7 +21,7 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 let ytCookieString = "";
 try {
     // Membaca file Netscape mentah
-    const cookieRaw = fs.readFileSync(path.join(__dirname, '../youtube-cookies.txt'), 'utf8');
+    const cookieRaw = fs.readFileSync(path.join(__dirname, '../www.youtube.com_cookies.txt'), 'utf8');
     const lines = cookieRaw.split('\n');
     const cookieArray = [];
     
