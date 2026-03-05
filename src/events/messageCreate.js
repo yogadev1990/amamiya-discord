@@ -1,23 +1,25 @@
 module.exports = {
-    name: 'interactionCreate',
-    async execute(interaction, client) {
-        // 1. Abaikan jika bukan command
-        if (!interaction.isCommand()) return;
+    name: 'messageCreate',
+    async execute(message, client) {
 
-        // 2. Ambil nama command
-        const command = client.commands.get(interaction.commandName);
+        if (message.author.bot) return;
 
-        if (!command) return; // Jika command tidak ditemukan, diam saja
+        const prefix = '!';
 
-        // 3. Jalankan command
+        if (!message.content.startsWith(prefix)) return;
+
+        const args = message.content.slice(prefix.length).trim().split(/ +/);
+        const commandName = args.shift().toLowerCase();
+
+        const command = client.commands.get(commandName);
+
+        if (!command) return;
+
         try {
-            await command.execute(interaction);
+            await command.execute(message, args);
         } catch (error) {
             console.error(error);
-            await interaction.reply({
-                content: '❌ Ada error saat menjalankan perintah ini!',
-                ephemeral: true
-            });
+            await message.reply('❌ Ada error saat menjalankan perintah ini!');
         }
     },
 };
