@@ -1,30 +1,23 @@
 module.exports = {
-    name: 'messageCreate',
-    async execute(message, client) {
-        // 1. Abaikan pesan dari bot lain
-        if (message.author.bot) return;
+    name: 'interactionCreate',
+    async execute(interaction, client) {
+        // 1. Abaikan jika bukan command
+        if (!interaction.isCommand()) return;
 
-        // 2. Tentukan Prefix (Awalan perintah)
-        const prefix = '!'; 
-
-        // 3. Cek apakah pesan diawali prefix
-        if (!message.content.startsWith(prefix)) return;
-
-        // 4. Pisahkan command dan argumen (Contoh: "!halo dunia" -> command="halo", args=["dunia"])
-        const args = message.content.slice(prefix.length).trim().split(/ +/);
-        const commandName = args.shift().toLowerCase();
-
-        // 5. Cari command di koleksi
-        const command = client.commands.get(commandName);
+        // 2. Ambil nama command
+        const command = client.commands.get(interaction.commandName);
 
         if (!command) return; // Jika command tidak ditemukan, diam saja
 
-        // 6. Jalankan command
+        // 3. Jalankan command
         try {
-            await command.execute(message, args);
+            await command.execute(interaction);
         } catch (error) {
             console.error(error);
-            await message.reply('❌ Ada error saat menjalankan perintah ini!');
+            await interaction.reply({
+                content: '❌ Ada error saat menjalankan perintah ini!',
+                ephemeral: true
+            });
         }
     },
 };

@@ -23,17 +23,29 @@ const foldersPath = path.join(__dirname, 'src', 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
 
 for (const folder of commandFolders) {
+
     const commandsPath = path.join(foldersPath, folder);
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-    
+
     for (const file of commandFiles) {
+
         const filePath = path.join(commandsPath, file);
         const command = require(filePath);
-        // Simpan command ke dalam koleksi
-        if ('name' in command && 'execute' in command) {
+
+        if (command.data && command.execute) {
+
+            // Slash command
+            client.commands.set(command.data.name, command);
+
+        } else if (command.name && command.execute) {
+
+            // Prefix command
             client.commands.set(command.name, command);
+
         } else {
-            console.log(`[WARNING] Command di ${filePath} tidak punya properti 'name' atau 'execute'.`);
+
+            console.log(`[WARNING] Command di ${filePath} tidak punya data/name`);
+
         }
     }
 }
