@@ -145,12 +145,12 @@ function playZenoRadio() {
 async function playNextCustom() {
     if (queue.length === 0) {
         console.log("⚠️ [QUEUE KOSONG] Kembali ke Radio 24/7 Fallback...");
-        currentTrack = null; // <--- Bersihkan variabel
-        return playZenoRadio(); 
+        currentTrack = null; // Bersihkan variabel
+        return playZenoRadio(); // FALLBACK KE RADIO JIKA ANTREAN HABIS
     }
 
     currentMode = 'CUSTOM';
-    currentTrack = queue.shift(); // <--- SIMPAN KE VARIABEL INI
+    currentTrack = queue.shift(); // Ambil lagu urutan pertama dan simpan ke currentTrack
 
     // Matikan radio jika masih menyala
     if (ffmpegProcess) {
@@ -159,17 +159,18 @@ async function playNextCustom() {
     }
 
     try {
-        console.log(`🎵 [MODE CUSTOM] Mengekstrak: ${track.url}`);
-        const stream = await getYouTubeStream(track.url);
+        // PERHATIKAN: Semua kata 'track' di bawah ini sudah diubah menjadi 'currentTrack'
+        console.log(`🎵 [MODE CUSTOM] Mengekstrak: ${currentTrack.url}`);
+        const stream = await getYouTubeStream(currentTrack.url);
 
         const resource = createAudioResource(stream, {
             inputType: StreamType.Opus
         });
         
         player.play(resource);
-        console.log(`▶️ Sedang memutar: ${track.title}`);
+        console.log(`▶️ Sedang memutar: ${currentTrack.title}`);
     } catch (error) {
-        console.error(`❌ [PLAY-DL ERROR] Gagal memutar lagu:`, error.message);
+        console.error(`❌ [YT-DLP ERROR] Gagal memutar lagu:`, error.message);
         // Jika error/lagu dihapus YouTube, skip ke lagu berikutnya
         playNextCustom(); 
     }
