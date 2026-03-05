@@ -18,33 +18,42 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 /* =======================
    SISTEM ANTI-BLOKIR YOUTUBE
 ======================= */
-let ytCookieString = "";
-try {
-    // Membaca file Netscape mentah
-    const cookieRaw = fs.readFileSync(path.join(__dirname, '../www.youtube.com_cookies.txt'), 'utf8');
-    const lines = cookieRaw.split('\n');
-    const cookieArray = [];
-    
-    // Looping untuk mengambil nama cookie (kolom 6) dan isinya (kolom 7)
-    for (const line of lines) {
-        if (line.trim().startsWith('#') || line.trim() === '') continue;
-        const parts = line.split('\t');
-        if (parts.length >= 7) {
-            cookieArray.push(`${parts[5]}=${parts[6].trim()}`);
-        }
-    }
-    
-    // Gabungkan menjadi satu string panjang
-    ytCookieString = cookieArray.join('; ');
+async function getYouTubeStream(url) {
+    return new Promise((resolve, reject) => {
 
-    // Suntikkan ke play-dl
-    if (ytCookieString) {
-        playdl.setToken({
-            youtube: { cookie: ytCookieString }
-        }).then(() => console.log('✅ [ANTI-BOT] Cookie YouTube berhasil disuntikkan!'));
-    }
-} catch (error) {
-    console.log('⚠️ [ANTI-BOT] File youtube-cookies.txt tidak ditemukan. Bot berisiko diblokir YouTube.');
+        const ytdlp = spawn('yt-dlp', [
+            '-f', 'bestaudio[ext=m4a]/bestaudio',
+            '--no-playlist',
+            '-o', '-',
+            url
+        ]);
+
+        const ffmpeg = spawn('ffmpeg', [
+            '-i', 'pipe:0',
+            '-f', 's16le',
+            '-ar', '48000',
+            '-ac', '2',
+            'pipe:1'
+        ]);
+
+        ytdlp.stdout.pipe(ffmpeg.stdin);
+
+        const encoder = new prism.opus.Encoder({
+            rate: 48000,
+            channels: 2,
+            frameSize: 960
+        });
+
+        ffmpeg.stdout.pipe(encoder);
+
+        ytdlp.stderr.on('data', d => console.log("[YTDLP]", d.toString()));
+        ffmpeg.stderr.on('data', d => console.log("[FFMPEG]", d.toString()));
+
+        ytdlp.on('error', reject);
+        ffmpeg.on('error', reject);
+
+        resolve(encoder);
+    });
 }
 /* =======================
    KONEKSI DATABASE
@@ -146,8 +155,11 @@ async function playNextCustom() {
 
     try {
         console.log(`🎵 [MODE CUSTOM] Mengekstrak: ${track.url}`);
-        const stream = await playdl.stream(track.url);
-        const resource = createAudioResource(stream.stream, { inputType: stream.type });
+        const stream = await getYouTubeStream(track.url);
+
+        const resource = createAudioResource(stream, {
+            inputType: StreamType.Opus
+        });
         
         player.play(resource);
         console.log(`▶️ Sedang memutar: ${track.title}`);

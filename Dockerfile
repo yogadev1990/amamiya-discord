@@ -5,8 +5,7 @@ FROM node:18-alpine
 WORKDIR /app
 
 # --- UPDATE DI SINI ---
-# Tambahkan 'font-noto' agar teks di gambar terbaca (tidak kotak-kotak)
-# Alpine menggunakan 'apk', bukan 'apt-get'
+# Tambahkan python3 dan curl untuk kebutuhan yt-dlp
 RUN apk add --no-cache \
     build-base \
     g++ \
@@ -14,8 +13,14 @@ RUN apk add --no-cache \
     pango-dev \
     giflib-dev \
     ffmpeg \
+    python3 \
+    curl \
     font-noto \
     font-noto-emoji
+
+# Download yt-dlp versi terbaru langsung dari GitHub
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+    && chmod a+rx /usr/local/bin/yt-dlp
 
 # Copy package.json dulu
 COPY package.json ./
