@@ -13,7 +13,8 @@ const prism = require('prism-media');
 const playdl = require('play-dl');
 const mongoose = require('mongoose');
 const path = require('path');
-const fs = require('fs');
+const User = require('./models/User');
+
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 /* =======================
    SISTEM ANTI-BLOKIR YOUTUBE
@@ -80,7 +81,8 @@ const DEFAULT_RADIO_URL = 'http://stream-178.zeno.fm/f3wvbbqmdg8uv';
 const queue = []; // Antrean lagu custom
 let currentMode = 'RADIO'; // 'RADIO' atau 'CUSTOM'
 let ffmpegProcess = null; // Menyimpan proses FFmpeg Zeno.fm
-const player = createAudioPlayer(); // Player global untuk channel ini
+let currentTrack = null; // <--- BARU: Menyimpan lagu yang SEDANG diputar
+const player = createAudioPlayer(); // Player global
 
 /* =======================
    DISCORD CLIENT
@@ -143,11 +145,12 @@ function playZenoRadio() {
 async function playNextCustom() {
     if (queue.length === 0) {
         console.log("⚠️ [QUEUE KOSONG] Kembali ke Radio 24/7 Fallback...");
-        return playZenoRadio(); // FALLBACK KE RADIO JIKA ANTREAN HABIS
+        currentTrack = null; // <--- Bersihkan variabel
+        return playZenoRadio(); 
     }
 
     currentMode = 'CUSTOM';
-    const track = queue.shift(); // Ambil lagu urutan pertama
+    currentTrack = queue.shift(); // <--- SIMPAN KE VARIABEL INI
 
     // Matikan radio jika masih menyala
     if (ffmpegProcess) {
@@ -274,6 +277,106 @@ client.on(Events.InteractionCreate, async interaction => {
         interaction.reply('⏭️ Melewati lagu saat ini...');
         player.stop(); // Ini akan memicu event AudioPlayerStatus.Idle secara otomatis
     }
+
+    // --- COMMAND: /queue ---
+    if (commandName === 'queue') {
+        if (currentMode === 'RADIO') {
+            return interaction.reply('📻 Saat ini sedang memutar **Radio Zeno.fm 24/7**. Antrean lagu custom kosong.');
+        }
+
+        let qText = `**🎶 Sedang Diputar:**\n${currentTrack ? currentTrack.title : 'Tidak ada'}\n\n**📋 Antrean Berikutnya:**\n`;
+        
+        if (queue.length === 0) {
+            qText += '*Kosong. Setelah lagu ini habis, bot akan kembali memutar Radio.*';
+        } else {
+            const max = Math.min(queue.length, 10); // Tampilkan maksimal 10 lagu aja biar gak spam
+            for (let i = 0; i < max; i++) {
+                qText += `${i + 1}. ${queue[i].title}\n`;
+            }
+            if (queue.length > 10) qText += `\n*...dan ${queue.length - 10} lagu lainnya.*`;
+        }
+
+        return interaction.reply({ content: qText });
+    }
+
+    // --- COMMAND: /playlist ---
+    if (commandName === 'playlist') {
+        const subCommand = interaction.options.getSubcommand();
+        const playlistName = interaction.options.getString('nama').toLowerCase();
+        const userId = interaction.user.id;
+
+        await interaction.deferReply();
+
+        try {
+            // Cari data user di MongoDB
+            let userDb = await User.findOne({ userId: userId });
+            
+            // Jika user belum ada di DB (misal member baru yang belum main Roblox/AI), buat profilnya otomatis
+            if (!userDb) {
+                userDb = new User({ userId: userId, username: interaction.user.username });
+            }
+
+            if (subCommand === 'add') {
+                if (currentMode === 'RADIO' || !currentTrack) {
+                    return interaction.editReply('❌ Bot sedang memutar Radio. Putar lagu custom dulu pakai `/play` sebelum menyimpannya ke playlist.');
+                }
+
+                // Cari apakah playlist dengan nama tersebut sudah dibuat user ini
+                let playlist = userDb.customPlaylists.find(p => p.playlistName.toLowerCase() === playlistName);
+                
+                if (!playlist) {
+                    // Buat wadah playlist baru jika belum ada
+                    userDb.customPlaylists.push({ playlistName: playlistName, tracks: [] });
+                    playlist = userDb.customPlaylists[userDb.customPlaylists.length - 1];
+                }
+
+                // Mencegah simpan lagu yang sama 2x di playlist yang sama
+                const isDuplicate = playlist.tracks.some(t => t.url === currentTrack.url);
+                if (isDuplicate) {
+                    return interaction.editReply(`⚠️ Lagu **${currentTrack.title}** sudah ada di playlist \`${playlistName}\`.`);
+                }
+
+                // Masukkan lagu ke Database
+                playlist.tracks.push({
+                    title: currentTrack.title,
+                    url: currentTrack.url,
+                    source: 'youtube',
+                    duration: currentTrack.duration
+                });
+
+                await userDb.save();
+                return interaction.editReply(`✅ Berhasil menyimpan **${currentTrack.title}** ke playlist \`${playlistName}\`!`);
+            }
+
+            if (subCommand === 'play') {
+                const playlist = userDb.customPlaylists.find(p => p.playlistName.toLowerCase() === playlistName);
+
+                if (!playlist || playlist.tracks.length === 0) {
+                    return interaction.editReply(`❌ Playlist \`${playlistName}\` tidak ditemukan atau masih kosong.`);
+                }
+
+                // Tarik semua lagu dari DB, dan push berurutan ke Antrean (RAM)
+                playlist.tracks.forEach(track => {
+                    queue.push({
+                        title: track.title,
+                        url: track.url,
+                        duration: track.duration || "Unknown"
+                    });
+                });
+
+                interaction.editReply(`✅ Berhasil memuat **${playlist.tracks.length} lagu** dari playlist \`${playlistName}\` ke antrean!`);
+
+                // Jika bot sedang mode Radio, langsung paksa ganti ke Custom Music
+                if (currentMode === 'RADIO') {
+                    playNextCustom();
+                }
+            }
+
+        } catch (error) {
+            console.error("Playlist Error:", error);
+            interaction.editReply('❌ Terjadi kesalahan saat memproses database playlist.');
+        }
+    }
 });
 
 /* =======================
@@ -287,7 +390,7 @@ client.once(Events.ClientReady, async () => {
 
     // Register Slash Commands Global Khusus Radio Bot (Hanya berjalan sekali saat bot nyala)
     // Pastikan bot utamamu tidak memiliki command bernama 'play' dan 'skip' agar tidak bentrok.
-    await client.application.commands.set([
+await client.application.commands.set([
         {
             name: 'play',
             description: 'Putar lagu dari YouTube',
@@ -296,6 +399,28 @@ client.once(Events.ClientReady, async () => {
         {
             name: 'skip',
             description: 'Lewati lagu custom yang sedang diputar'
+        },
+        {
+            name: 'queue',
+            description: 'Lihat daftar antrean lagu saat ini'
+        },
+        {
+            name: 'playlist',
+            description: 'Kelola playlist pribadi kamu',
+            options: [
+                {
+                    type: 1, // SUB_COMMAND
+                    name: 'add',
+                    description: 'Simpan lagu yang SEDANG DIPUTAR ke playlist kamu',
+                    options: [{ type: 3, name: 'nama', description: 'Nama playlist (contoh: Lofi, Phonk)', required: true }]
+                },
+                {
+                    type: 1, // SUB_COMMAND
+                    name: 'play',
+                    description: 'Putar seluruh lagu dari playlist kamu',
+                    options: [{ type: 3, name: 'nama', description: 'Nama playlist yang ingin diputar', required: true }]
+                }
+            ]
         }
     ]);
     console.log("✅ Commands /play & /skip berhasil didaftarkan.");
