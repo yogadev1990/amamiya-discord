@@ -22,12 +22,11 @@ async function getYouTubeStream(url) {
     return new Promise((resolve, reject) => {
 
 const ytdlp = spawn('yt-dlp', [
-'-f','bestaudio[ext=m4a]/bestaudio',
+'-f', 'bestaudio/best',
 '--no-playlist',
-'--cookies','/app/www.youtube.com_cookies.txt',
-'--extractor-args','youtube:player_client=android',
-'--js-runtimes','node',
-'-o','-',
+'--cookies', '/app/www.youtube.com_cookies.txt',
+'--js-runtimes', 'node',
+'-o', '-',
 url
 ]);
 
