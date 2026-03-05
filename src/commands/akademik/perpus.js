@@ -11,9 +11,9 @@ module.exports = {
                 .setDescription('Pilih layanan yang ingin dibuka')
                 .setRequired(true)
                 .addChoices(
-                    { name: 'Repository Skripsi', value: 'skripsi' },
-                    { name: 'Bank Diktat PENDPRO', value: 'diktat' },
-                    { name: 'Library Digital Ebook (Kavita)', value: 'kavita' }
+                    { name: 'Skripsi', value: 'skripsi' },
+                    { name: 'Bank Diktat', value: 'diktat' },
+                    { name: 'Library Digital Ebook', value: 'kavita' }
                 )
         ),
 
@@ -25,8 +25,8 @@ module.exports = {
             const embedKavita = new EmbedBuilder()
                 .setColor(0x9B59B6)
                 .setTitle('📚 Library Digital Ebook (Kavita)')
-                .setDescription('Akses koleksi Ebook digital melalui platform Kavita.\n\n🔗 **Link Akses:** [library.revanetic.my.id](https://library.revanetic.my.id)')
-                .setThumbnail('https://cdn-icons-png.flaticon.com/512/2097/2097068.png');
+                .setDescription('Akses koleksi Ebook digital melalui platform Kavita.\n\nUsername: kgunsri\nPassword: 123456\n\n🔗 **Link Akses:** [library.revanetic.my.id](https://library.revanetic.my.id)')
+                .setThumbnail('https://cdn-icons-png.flaticon.com/512/2097/2097068.png').setFooter({ text: 'Amamiya by Revanda' });;
             
             return interaction.reply({ embeds: [embedKavita] });
         }
@@ -36,7 +36,7 @@ module.exports = {
             const embedDiktat = new EmbedBuilder()
                 .setColor(0xF1C40F)
                 .setTitle('📔 Bank Diktat by PENDPRO')
-                .setDescription('Kumpulan diktat untuk warga KG.\n\n⚠️ **Peringatan:** Gunakan secara bijak. Dilarang menyebarluaskan kepada selain warga KG.\n\n🔗 **Link Akses:** [Google Drive PENDPRO](https://drive.google.com/drive/folders/1Kp5nziIWlxFohay2dc479kNG40FGx0Ow)');
+                .setDescription('Kumpulan diktat untuk warga KG.\n\n⚠️ **Peringatan:** Gunakan secara bijak. Dilarang menyebarluaskan kepada selain warga KG.\n\n🔗 **Link Akses:** [Google Drive PENDPRO](https://drive.google.com/drive/folders/1Kp5nziIWlxFohay2dc479kNG40FGx0Ow)').setFooter({ text: 'Amamiya by Revanda' });;
             
             return interaction.reply({ embeds: [embedDiktat] });
         }
@@ -77,7 +77,7 @@ module.exports = {
                 .setTitle('🏛️ PERPUSTAKAAN DIGITAL KG UNSRI')
                 .setDescription(`Selamat datang di Repository Skripsi.\nTotal tersimpan: **${totalSkripsi} Dokumen** dalam **${totalKategori} Departemen**.\n\nSilakan pilih **Departemen/Spesialisasi** di bawah ini untuk membuka rak buku.\n\n${statsText}`)
                 .setThumbnail('https://cdn-icons-png.flaticon.com/512/2232/2232688.png')
-                .setFooter({ text: 'Data Repository Universitas Sriwijaya' });
+                .setFooter({ text: 'Amamiya by Revanda' });
 
             const menuOptions = sortedCategories.map(cat => ({
                 label: cat,
