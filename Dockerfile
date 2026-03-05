@@ -22,6 +22,9 @@ RUN apk add --no-cache \
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp
 
+RUN apk add --no-cache \
+    nodejs-current \
+    npm
 # Copy package.json dulu
 COPY package.json ./
 

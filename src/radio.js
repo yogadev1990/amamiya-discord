@@ -21,12 +21,15 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 async function getYouTubeStream(url) {
     return new Promise((resolve, reject) => {
 
-        const ytdlp = spawn('yt-dlp', [
-            '-f', 'bestaudio[ext=m4a]/bestaudio',
-            '--no-playlist',
-            '-o', '-',
-            url
-        ]);
+const ytdlp = spawn('yt-dlp', [
+'-f','bestaudio[ext=m4a]/bestaudio',
+'--no-playlist',
+'--cookies','/app/www.youtube.com_cookies.txt',
+'--extractor-args','youtube:player_client=android',
+'--js-runtimes','node',
+'-o','-',
+url
+]);
 
         const ffmpeg = spawn('ffmpeg', [
             '-i', 'pipe:0',
