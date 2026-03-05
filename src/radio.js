@@ -13,8 +13,39 @@ const prism = require('prism-media');
 const playdl = require('play-dl');
 const mongoose = require('mongoose');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
+/* =======================
+   SISTEM ANTI-BLOKIR YOUTUBE
+======================= */
+let ytCookieString = "";
+try {
+    // Membaca file Netscape mentah
+    const cookieRaw = fs.readFileSync(path.join(__dirname, '../youtube-cookies.txt'), 'utf8');
+    const lines = cookieRaw.split('\n');
+    const cookieArray = [];
+    
+    // Looping untuk mengambil nama cookie (kolom 6) dan isinya (kolom 7)
+    for (const line of lines) {
+        if (line.trim().startsWith('#') || line.trim() === '') continue;
+        const parts = line.split('\t');
+        if (parts.length >= 7) {
+            cookieArray.push(`${parts[5]}=${parts[6].trim()}`);
+        }
+    }
+    
+    // Gabungkan menjadi satu string panjang
+    ytCookieString = cookieArray.join('; ');
 
+    // Suntikkan ke play-dl
+    if (ytCookieString) {
+        playdl.setToken({
+            youtube: { cookie: ytCookieString }
+        }).then(() => console.log('✅ [ANTI-BOT] Cookie YouTube berhasil disuntikkan!'));
+    }
+} catch (error) {
+    console.log('⚠️ [ANTI-BOT] File youtube-cookies.txt tidak ditemukan. Bot berisiko diblokir YouTube.');
+}
 /* =======================
    KONEKSI DATABASE
 ======================= */
