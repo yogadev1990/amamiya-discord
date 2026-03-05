@@ -83,15 +83,33 @@ module.exports = {
             }
 
             // --- OPTIMASI 4: Split Message Logic ---
+// --- OPTIMASI 4: Split Message Logic (Rapi) ---
             if (jawabanAI.length > 1900) {
-                const chunks = jawabanAI.match(/[\s\S]{1,1900}/g) || [];
-                
+                // Pisahkan teks berdasarkan baris baru (\n)
+                const lines = jawabanAI.split('\n');
+                const chunks = [];
+                let currentChunk = '';
+
+                for (const line of lines) {
+                    // Jika ditambah baris ini akan melebihi 1900 karakter, simpan chunk lama, buat yang baru
+                    if (currentChunk.length + line.length + 1 > 1900) {
+                        chunks.push(currentChunk);
+                        currentChunk = line + '\n';
+                    } else {
+                        currentChunk += line + '\n';
+                    }
+                }
+                if (currentChunk) chunks.push(currentChunk);
+
+                // Kirim pesan pertama
                 await interaction.editReply(`📚 **Hasil Penelusuran & Analisis:**\n\n${chunks[0]}`);
                 
+                // Kirim sisa pesan sebagai balasan (followUp)
                 for (let i = 1; i < chunks.length; i++) {
                     await interaction.followUp({ content: chunks[i] });
                 }
                 
+                // Kirim tombol di pesan terakhir
                 if (row.components.length > 0) {
                     await interaction.followUp({ components: [row] });
                 }
