@@ -1,31 +1,33 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { searchSkripsi } = require('../../utils/milvusHelper');
 const GeminiAi = require('../../utils/geminiHelper');
 
 module.exports = {
-    name: 'skripsi',
-    description: 'Cari referensi skripsi FKG Unsri via Milvus',
-    async execute(message, args) {
-        if (!args.length) {
-            return message.reply('Mau cari skripsi tentang apa? Contoh: `!skripsi karies gigi anak`');
-        }
+    data: new SlashCommandBuilder()
+        .setName('skripsi')
+        .setDescription('Cari referensi dan cek kebaharuan skripsi FKG Unsri via Milvus')
+        .addStringOption(option =>
+            option.setName('topik')
+                .setDescription('Ide judul atau topik skripsi (contoh: karies gigi anak)')
+                .setRequired(true)
+        ),
 
-        const query = args.join(' ');
-        // Gunakan reply agar men-tag user, bukan sendTyping biasa
-        const loadingMsg = await message.reply('🔍 Sedang mencari di database skripsi Unsri...');
+    async execute(interaction) {
+        const query = interaction.options.getString('topik');
+        
+        // Wajib deferReply karena proses Milvus + Gemini pasti memakan waktu
+        await interaction.deferReply();
 
         try {
             const results = await searchSkripsi(query);
 
             if (!results || results.length === 0) {
-                return loadingMsg.edit('❌ Tidak ditemukan skripsi yang relevan.');
+                return interaction.editReply('❌ Tidak ditemukan skripsi yang relevan di database.');
             }
 
             // --- OPTIMASI 1: Bersihkan Data & Mapping Field ---
             let contextText = "";
             results.forEach((doc, index) => {
-                // BUG FIX: Sesuaikan nama field dengan Schema Milvus (title, authors, url)
-                // Safety check: (doc.abstract || "").substring(...) mencegah error jika abstrak null
                 contextText += `
                 [Dokumen ${index + 1}]
                 Judul: ${doc.title}
@@ -37,8 +39,9 @@ module.exports = {
             });
 
             // --- OPTIMASI 2: Prompt Engineering ---
+// --- OPTIMASI 2: Prompt Engineering Terstruktur ---
             const prompt = `
-            Kamu adalah amamiya, seorang Pemandu Petualang di KG UNSRI yang memiliki sifat kritis, teliti, dan objektif.
+            Kamu adalah amamiya, seorang Pemandu Akademik di KG UNSRI yang kritis, teliti, dan objektif.
             
             INPUT USER:
             "${query}"
@@ -47,28 +50,29 @@ module.exports = {
             ${contextText}
 
             TUGAS ANALISIS:
-            1. Bandingkan ide topik yang diajukan user dengan Data Riwayat Skripsi di atas.
-            2. CEK KEBAHARUAN (NOVELTY CHECK):
-               - JIKA ide user SANGAT MIRIP (variabel sama, metode sama) dengan salah satu skripsi di database:
-                 Warning user dengan TEGAS bahwa judul tersebut sudah pernah diteliti (sebutkan Judul/Penulis/Tahun skripsi lamanya). Katakan bahwa kemungkinan besar judul ini akan DITOLAK karena kurang novelty.
-               - JIKA ide user BELUM ADA di database:
-                 Katakan bahwa topik ini memiliki potensi kebaharuan yang bagus.
-            
-            3. BERIKAN SARAN PENGEMBANGAN:
-               - Jika topik sudah pernah ada, sarankan variabel pembeda (misal: ganti bahan, ganti metode uji, ganti subjek).
-            
-            4. JANGAN ASAL MENYETUJUI. Gunakan data sebagai bukti.
-            5. Jawab dalam Bahasa Indonesia yang formal namun luwes seperti dosen pembimbing yang baik.
+            Bandingkan ide topik user dengan Data Riwayat Skripsi di atas. Berikan jawaban dengan format markdown persis seperti di bawah ini:
+
+            **🔍 1. Analisis Kebaharuan (Novelty)**
+            (Jelaskan secara tajam apakah topik ini fresh, inovatif, atau sudah pasaran di FKG Unsri. Jangan basa-basi).
+
+            **⚠️ 2. Tingkat Kemiripan Topik**
+            (Sebutkan secara spesifik Judul, Penulis, dan Tahun dari skripsi database yang paling mendekati. Jika ide user persis sama dengan data lama, peringatkan dengan TEGAS potensi penolakan judul. Jika berbeda jauh, nyatakan aman).
+
+            **💡 3. Rekomendasi Pengembangan Proposal**
+            (Berikan 2-3 saran konkret agar proposal makin solid. Misalnya: sarankan variabel pembeda, penggantian subjek penelitian, metrik evaluasi alternatif, atau perubahan metode uji).
+
+            Aturan Tambahan:
+            - Jangan asal menyetujui, gunakan data sebagai bukti utama.
+            - Gunakan bahasa Indonesia formal, luwes, namun tegas layaknya dosen pembimbing yang menguji ide mahasiswanya.
             `;
 
-            const jawabanAI = await GeminiAi.run(message.author.id, message.author.username, prompt);
+            // Panggil AI (Perhatikan perubahan dari message.author menjadi interaction.user)
+            const jawabanAI = await GeminiAi.run(interaction.user.id, interaction.user.username, prompt);
 
             // --- OPTIMASI 3: Button Handling ---
-            // Ambil link dari hasil teratas (score tertinggi)
             const topResult = results[0];
             const row = new ActionRowBuilder();
             
-            // Validasi URL valid sebelum bikin tombol
             if (topResult.url && topResult.url.startsWith('http')) {
                 row.addComponents(
                     new ButtonBuilder()
@@ -78,27 +82,29 @@ module.exports = {
                 );
             }
 
-            // Split message logic (tetap dipertahankan)
+            // --- OPTIMASI 4: Split Message Logic ---
             if (jawabanAI.length > 1900) {
                 const chunks = jawabanAI.match(/[\s\S]{1,1900}/g) || [];
-                await loadingMsg.edit(`📚 **Hasil Penelusuran:**`);
-                for (const chunk of chunks) {
-                    await message.channel.send({ content: chunk });
+                
+                await interaction.editReply(`📚 **Hasil Penelusuran & Analisis:**\n\n${chunks[0]}`);
+                
+                for (let i = 1; i < chunks.length; i++) {
+                    await interaction.followUp({ content: chunks[i] });
                 }
-                if (row.components.length > 0) await message.channel.send({ components: [row] });
+                
+                if (row.components.length > 0) {
+                    await interaction.followUp({ components: [row] });
+                }
             } else {
-                await loadingMsg.edit({ 
-                    content: `📚 **Hasil Penelusuran:**\n\n${jawabanAI}`,
+                await interaction.editReply({ 
+                    content: `📚 **Hasil Penelusuran & Analisis:**\n\n${jawabanAI}`,
                     components: row.components.length > 0 ? [row] : []
                 });
             }
 
         } catch (error) {
-            console.error(error);
-            // Cek jika loadingMsg masih ada/bisa diedit
-            if (loadingMsg.editable) {
-                await loadingMsg.edit('❌ Terjadi kesalahan sistem (Database/AI Error).');
-            }
+            console.error("Skripsi Command Error:", error);
+            await interaction.editReply('❌ Terjadi kesalahan sistem saat menghubungi Database Milvus atau AI.');
         }
     },
 };
