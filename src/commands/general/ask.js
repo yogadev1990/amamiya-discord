@@ -3,23 +3,23 @@ const GeminiAi = require('../../utils/geminiHelper');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('tanya')
-        .setDescription('Tanya AI (support teks & gambar)')
+        .setName('ask')
+        .setDescription('Ask AI (support text & image)')
         .addStringOption(option =>
-            option.setName('pertanyaan')
+            option.setName('question')
                 .setDescription('Pertanyaan untuk AI')
-                .setRequired(false)
+                .setRequired(true)
         )
         .addAttachmentOption(option =>
-            option.setName('gambar')
+            option.setName('image')
                 .setDescription('Upload gambar untuk dianalisis AI')
                 .setRequired(false)
         ),
 
     async execute(interaction) {
 
-        const textQuery = interaction.options.getString('pertanyaan');
-        const attachment = interaction.options.getAttachment('gambar');
+        const textQuery = interaction.options.getString('question');
+        const attachment = interaction.options.getAttachment('image');
 
         if (!textQuery && !attachment) {
             return interaction.reply({
@@ -35,7 +35,6 @@ module.exports = {
             let imageUrl = null;
             let mimeType = null;
 
-            // jika ada gambar
             if (attachment) {
 
                 if (!attachment.contentType?.startsWith('image/')) {
@@ -54,7 +53,6 @@ module.exports = {
                 mimeType
             );
 
-            // handle limit 2000 char
             if (jawaban.length > 2000) {
 
                 const chunks = jawaban.match(/[\s\S]{1,1900}/g) || [];
