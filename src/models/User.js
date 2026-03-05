@@ -39,6 +39,25 @@ const userSchema = new mongoose.Schema({
             parts: [{ text: String }],
             timestamp: { type: Date, default: Date.now }
         }
+    ],
+
+    // ==========================================
+    // --- Sistem Audio Dual Mode (BARU) ---
+    // ==========================================
+    // Playlist kustom buatan user (Pribadi)
+    customPlaylists: [
+        {
+            playlistName: { type: String, required: true }, // Contoh: 'Phonk Gym', 'Klasik Preklinik'
+            tracks: [
+                {
+                    title: String,
+                    url: String, // Link YouTube / platform lain
+                    source: String, // Contoh: 'youtube', 'spotify'
+                    duration: String,
+                    addedAt: { type: Date, default: Date.now }
+                }
+            ]
+        }
     ]
 });
 
