@@ -33,37 +33,31 @@ class GeminiAi {
       }
 
       // 3. DATABASE: Update History User (Input Baru)
-      let userParts = [{ text: message }];
+// 3. SETUP INPUT SAAT INI (Teks + File)
+      let currentInputParts = [{ text: message }];
       if (imageUrl) {
           const imagePart = await urlToGenerativePart(imageUrl, mimeType);
-          userParts.push(imagePart);
+          currentInputParts.push(imagePart); // Ini untuk dikirim ke Google
       }
 
-      // Push chat user ke array history database
-        user.chatHistory.push({ role: 'user', parts: userParts });
+      // SIMPAN KE DATABASE: HANYA TEKS SAJA (Mencegah MongoDB Overload)
+      user.chatHistory.push({ role: 'user', parts: [{ text: message }] });
       
-      // LOGIC AMAN: Ambil history dan bersihkan formatnya
-      const historyForGemini = user.chatHistory
-          .slice(-20) // Ambil 20 chat terakhir
+      // LOGIC AMAN: Ambil history dari DB
+      let historyForGemini = user.chatHistory
+          .slice(-20)
           .map(h => {
               return {
                   role: h.role,
-                  parts: h.parts.map(p => {
-                      // Cek apakah ini bagian File (Gambar/PDF)
-                      if (p.inlineData && p.inlineData.data) {
-                          return {
-                              inlineData: {
-                                  data: p.inlineData.data, // Pastikan data terambil
-                                  mimeType: p.inlineData.mimeType
-                              }
-                          };
-                      }
-                      // Jika bukan file, berarti teks
-                      return { text: p.text || "" }; 
-                  })
+                  parts: h.parts.map(p => ({ text: p.text || "" }))
               };
           });
 
+      // Hapus chat terakhir dari historyForGemini (karena kita akan menggantinya dengan currentInputParts yang ada file-nya)
+      historyForGemini.pop(); 
+      // Masukkan input komplit (beserta file Base64) ke barisan paling akhir untuk dikirim ke AI
+      historyForGemini.push({ role: 'user', parts: currentInputParts });
+      
       // 4. Generate Jawaban
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const systemInstruction = `
