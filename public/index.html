@@ -103,34 +103,31 @@
             dataArray = new Uint8Array(analyser.frequencyBinCount);
         }
 
-        function putarAudioLipSync(base64Data) {
-            const binaryString = window.atob(base64Data);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+function putarAudioLipSync(base64Data) {
 
-            audioCtx.decodeAudioData(bytes.buffer, (buffer) => {
-                const source = audioCtx.createBufferSource();
-                source.buffer = buffer;
-                source.connect(analyser);
-                analyser.connect(audioCtx.destination);
-                
-                source.start(0);
-                isSpeaking = true;
+    const audio = new Audio(`data:audio/mp3;base64,${base64Data}`);
 
-                source.onended = () => {
-                    isSpeaking = false;
-                    if (currentVrm) {
-                        currentVrm.expressionManager.setValue('aa', 0);
-                        ['happy', 'sad', 'angry', 'surprised', 'neutral'].forEach(emo => 
-                            currentVrm.expressionManager.setValue(emo, 0)
-                        );
-                        currentVrm.expressionManager.setValue('neutral', 1.0);
-                    }
-                    document.getElementById('ui-layer').style.display = 'none';
-                };
-            });
+    const source = audioCtx.createMediaElementSource(audio);
+    source.connect(analyser);
+    analyser.connect(audioCtx.destination);
+
+    audio.play();
+    isSpeaking = true;
+
+    audio.onended = () => {
+        isSpeaking = false;
+
+        if (currentVrm) {
+            currentVrm.expressionManager.setValue('aa', 0);
+            ['happy','sad','angry','surprised','neutral'].forEach(e =>
+                currentVrm.expressionManager.setValue(e,0)
+            );
+            currentVrm.expressionManager.setValue('neutral',1);
         }
+
+        document.getElementById('ui-layer').style.display = 'none';
+    };
+}
 
         // ==========================================
         // 4. ANIMATION LOOP (IDLE, BLINK, & LIP-SYNC)
@@ -193,8 +190,12 @@
                     for(let i = 0; i < dataArray.length; i++) sum += dataArray[i];
                     let averageVolume = sum / dataArray.length;
                     
-                    let mouthOpen = Math.min(1.0, averageVolume / 35.0); // Sensitivitas mulut diatur ke 35.0
-                    currentVrm.expressionManager.setValue('aa', mouthOpen);
+let mouthOpen = Math.min(1.0, averageVolume / 45.0);
+mouthOpen = THREE.MathUtils.lerp(
+    currentVrm.expressionManager.getValue('aa'),
+    mouthOpen,
+    0.5
+);
                 }
 
                 currentVrm.update(deltaTime);
