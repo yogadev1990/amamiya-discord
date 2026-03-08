@@ -58,7 +58,13 @@ const userSchema = new mongoose.Schema({
                 }
             ]
         }
-    ]
+    ],
+
+    // ==========================================
+    // --- Sistem NotebookLM ---
+    // ==========================================
+    // Menyimpan ID Notebook yang sedang aktif / dibuka oleh user
+    activeNotebook: { type: mongoose.Schema.Types.ObjectId, ref: 'Notebook', default: null }
 });
 
 module.exports = mongoose.model('User', userSchema);

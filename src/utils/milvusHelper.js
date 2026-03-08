@@ -33,8 +33,6 @@ async function searchSkripsi(queryText) {
             return null;
         }
 
-        // Search result milvus biasanya membungkus result dalam property 'results'
-        // Struktur balikan milvus node sdk kadang langsung array of objects tergantung versi
         return searchResult.results;
 
     } catch (error) {

@@ -25,6 +25,11 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o 
 RUN apk add --no-cache \
     nodejs-current \
     npm
+
+RUN apk add --no-cache \
+    ghostscript \
+    graphicsmagick
+    
 # Copy package.json dulu
 COPY package.json ./
 
