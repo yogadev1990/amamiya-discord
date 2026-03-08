@@ -102,7 +102,6 @@
             analyser.fftSize = 256;
             dataArray = new Uint8Array(analyser.frequencyBinCount);
         }
-console.log(responseTTS.candidates[0].content.parts[0].inlineData.mimeType);
 function putarAudioLipSync(base64Data) {
 
     const audio = new Audio(`data:audio/wav;base64,${base64Data}`);

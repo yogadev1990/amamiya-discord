@@ -195,7 +195,7 @@ module.exports = {
                         });
 
                         const audioData = responseTTS.candidates[0].content.parts[0].inlineData.data;
-
+                        console.log(responseTTS.candidates[0].content.parts[0].inlineData.mimeType);
                         // ==========================================
                         // TAHAP 4: KIRIM KE BROWSER
                         // ==========================================
