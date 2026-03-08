@@ -117,7 +117,7 @@ module.exports = {
                             
                             // Embed Pertanyaan
                             const embedResult = await ai.models.embedContent({
-                                model: 'text-embedding-004', // Menggunakan model embedding terbaru
+                                model: 'gemini-embedding-001', // Menggunakan model embedding terbaru
                                 contents: pertanyaanUser
                             });
                             const vektorPertanyaan = embedResult.embeddings[0].values;
