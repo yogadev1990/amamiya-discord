@@ -35,7 +35,6 @@ module.exports = {
                 console.log(`[AUDIO] Mulai merekam suara ${interaction.user.username}...`);
 
                 // 3. Tangkap aliran audio (Opus Stream)
-                // Berhenti merekam otomatis jika user diam selama 1.5 detik
                 const audioStream = receiver.subscribe(userId, {
                     end: {
                         behavior: EndBehaviorType.AfterSilence,
@@ -43,9 +42,23 @@ module.exports = {
                     },
                 });
 
+                // ==========================================
+                // WAJIB ADA: Pengaman agar bot kebal crash
+                // ==========================================
+                audioStream.on('error', (error) => {
+                    console.error(`⚠️ [AUDIO STREAM] Paket rusak dari user, abaikan:`, error.message);
+                });
+
                 // 4. Ubah format audio Discord (Opus) ke format mentah (PCM)
                 const decoder = new prism.opus.Decoder({ rate: 48000, channels: 1, frameSize: 960 });
                 const pcmStream = audioStream.pipe(decoder);
+
+                // ==========================================
+                // WAJIB ADA: Pengaman dekoder
+                // ==========================================
+                pcmStream.on('error', (error) => {
+                    console.error(`⚠️ [PCM DECODER] Gagal decode audio:`, error.message);
+                });
 
                 let audioBuffer = [];
                 pcmStream.on('data', (chunk) => {
@@ -54,16 +67,16 @@ module.exports = {
 
                 // 5. Eksekusi saat user selesai bicara (diam 1.5 detik)
                 pcmStream.on('end', () => {
+                    if (audioBuffer.length === 0) return; // Abaikan jika buffer kosong karena error
+
                     const finalBuffer = Buffer.concat(audioBuffer);
                     console.log(`[AUDIO] Selesai merekam. Total ukuran PCM: ${finalBuffer.length} bytes`);
 
-                    // Kirim sinyal dummy ke web browser agar avatar terlihat "berpikir"
                     interaction.client.io.emit('ai_speak', {
                         teks: "*[Sedang mencerna ucapanmu...]*",
                         emosi: "neutral"
                     });
-
-                    // --- DI SINI NANTI KITA MASUKKAN LOGIKA AI (GEMINI) ---
+                    
                 });
             }
         });
