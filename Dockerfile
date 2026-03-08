@@ -1,39 +1,37 @@
-# Gunakan image Node.js yang ringan
-FROM node:18-alpine
+# Gunakan Node.js versi 22 (Wajib untuk pdf-parse v2)
+FROM node:22-alpine
 
 # Set folder kerja di dalam container
 WORKDIR /app
 
-# --- UPDATE DI SINI ---
-# Tambahkan python3 dan curl untuk kebutuhan yt-dlp
+# Gabungkan instalasi library OS agar image lebih ringan dan optimal
+# Termasuk build-base & dev tools untuk kompilasi Canvas
+# Termasuk ghostscript & graphicsmagick untuk pdf2pic
+# Termasuk ffmpeg, python3, curl untuk yt-dlp
 RUN apk add --no-cache \
     build-base \
     g++ \
     cairo-dev \
     pango-dev \
+    jpeg-dev \
     giflib-dev \
+    librsvg-dev \
     ffmpeg \
     python3 \
     curl \
     font-noto \
-    font-noto-emoji
+    font-noto-emoji \
+    ghostscript \
+    graphicsmagick
 
 # Download yt-dlp versi terbaru langsung dari GitHub
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp
 
-RUN apk add --no-cache \
-    nodejs-current \
-    npm
+# Copy konfigurasi dependensi
+COPY package*.json ./
 
-RUN apk add --no-cache \
-    ghostscript \
-    graphicsmagick
-    
-# Copy package.json dulu
-COPY package.json ./
-
-# Install library
+# Install library NPM
 RUN npm install
 
 # Copy seluruh kode bot

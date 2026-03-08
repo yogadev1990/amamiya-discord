@@ -19,6 +19,7 @@
     "@zilliz/milvus2-sdk-node": "^2.6.9",
     "axios": "^1.13.2",
     "better-sqlite3": "^12.6.2",
+    "canvas": "^3.2.1",
     "discord-api-types": "^0.38.37",
     "discord.js": "^14.25.1",
     "dotenv": "^17.2.3",
