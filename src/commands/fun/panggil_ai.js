@@ -1,13 +1,17 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { joinVoiceChannel, EndBehaviorType } = require('@discordjs/voice');
 const prism = require('prism-media');
+const { GoogleGenAI } = require('@google/genai'); // SDK Baru
+const { MilvusClient } = require("@zilliz/milvus2-sdk-node");
 
-// 1. Panggil SDK baru Google Gen AI
-const { GoogleGenAI } = require('@google/genai');
-// Pastikan variabel GEMINI_API_KEY sudah terisi di file .env kamu
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }); 
+// Model Database
+const User = require('../../models/User'); // Sesuaikan path jika berbeda
+const Notebook = require('../../models/Notebook'); // Sesuaikan path jika berbeda
 
-// Fungsi rahasia untuk menyulap Raw PCM menjadi WAV di dalam RAM (0 Latensi)
+// Inisialisasi Klien
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const milvusClient = new MilvusClient({ address: `${process.env.MILVUS_HOST}:${process.env.MILVUS_PORT}`, ssl: false });
+
 function getWavHeader(pcmLength, sampleRate = 48000, channels = 1, bitsPerSample = 16) {
     const header = Buffer.alloc(44);
     header.write('RIFF', 0);
@@ -29,7 +33,7 @@ function getWavHeader(pcmLength, sampleRate = 48000, channels = 1, bitsPerSample
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('panggil_ai')
-        .setDescription('Panggil avatar AI ke Voice Channel untuk ngobrol'),
+        .setDescription('Panggil asisten VTuber AI ke Voice Channel'),
 
     async execute(interaction) {
         const member = interaction.member;
@@ -45,13 +49,12 @@ module.exports = {
             channelId: voiceChannel.id,
             guildId: voiceChannel.guild.id,
             adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-            selfDeaf: false 
+            selfDeaf: false
         });
 
         const receiver = connection.receiver;
 
         receiver.speaking.on('start', (userId) => {
-            // Hanya merespons user yang memanggil command ini
             if (userId === interaction.user.id) {
                 console.log(`[AUDIO] Merekam suara ${interaction.user.username}...`);
 
@@ -59,93 +62,153 @@ module.exports = {
                     end: { behavior: EndBehaviorType.AfterSilence, duration: 1500 },
                 });
 
-                // PENGAMAN: Mencegah crash jika ada paket audio rusak dari Discord
-                audioStream.on('error', (error) => {
-                    console.error(`⚠️ [AUDIO STREAM] Paket terabaikan:`, error.message);
-                });
+                audioStream.on('error', (err) => console.error(`⚠️ [AUDIO STREAM] Error:`, err.message));
 
-                // Discord Opus (Stereo 48kHz) -> PCM (Mono 48kHz)
                 const decoder = new prism.opus.Decoder({ rate: 48000, channels: 1, frameSize: 960 });
                 const pcmStream = audioStream.pipe(decoder);
-                
-                // PENGAMAN DEKODER
-                pcmStream.on('error', (error) => {
-                    console.error(`⚠️ [PCM DECODER] Dekode gagal:`, error.message);
-                });
+                pcmStream.on('error', (err) => console.error(`⚠️ [PCM DECODER] Error:`, err.message));
 
                 let audioBuffer = [];
                 pcmStream.on('data', (chunk) => audioBuffer.push(chunk));
 
                 pcmStream.on('end', async () => {
-                    if (audioBuffer.length === 0) return; 
+                    if (audioBuffer.length === 0) return;
 
                     const finalPcmBuffer = Buffer.concat(audioBuffer);
-                    
-                    // 2. BUNGKUS PCM JADI WAV
                     const wavHeader = getWavHeader(finalPcmBuffer.length);
                     const wavBuffer = Buffer.concat([wavHeader, finalPcmBuffer]);
                     const base64Audio = wavBuffer.toString('base64');
 
-                    console.log(`[GEMINI] Mengirim ${wavBuffer.length} bytes file WAV ke Native API...`);
+                    interaction.client.io.emit('ai_speak', { teks: "*[Sedang mencerna...]*", emosi: "neutral" });
 
-                    // Kirim sinyal loading ke web
-                    interaction.client.io.emit('ai_speak', {
-                        teks: "*[Berpikir...]*",
-                        emosi: "neutral"
-                    });
-
-                    // 3. KIRIM AUDIO LANGSUNG KE GEMINI NATIVE AUDIO
                     try {
-                        const response = await ai.models.generateContent({
-                            // Pastikan model name sesuai dengan dokumen pratinjau terbaru Google
-                            model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+                        let konteksGabungan = "";
+                        let pertanyaanUser = "";
+
+                        // ==========================================
+                        // TAHAP 1A: CEK STATUS BUKU & TRANSKRIPSI (STT)
+                        // ==========================================
+                        const userProfile = await User.findOne({ userId: interaction.user.id });
+                        const activeNotebook = userProfile && userProfile.activeNotebook ? await Notebook.findById(userProfile.activeNotebook) : null;
+
+                        if (activeNotebook && activeNotebook.files.length > 0) {
+                            console.log(`[STT] Mengekstrak teks untuk pencarian Milvus...`);
+                            
+                            // Ekstrak teks dari audio untuk diubah menjadi Vektor
+                            const sttResponse = await ai.models.generateContent({
+                                model: 'gemini-2.5-flash',
+                                contents: [
+                                    {
+                                        role: 'user',
+                                        parts: [
+                                            { text: 'Transkrip audio ini menjadi teks secara presisi. Jawab HANYA dengan teks transkripsinya saja.' },
+                                            { inlineData: { mimeType: 'audio/wav', data: base64Audio } }
+                                        ]
+                                    }
+                                ]
+                            });
+                            pertanyaanUser = sttResponse.text;
+                            console.log(`[STT HASIL]: "${pertanyaanUser}"`);
+
+                            // ==========================================
+                            // TAHAP 1B: PENCARIAN MILVUS (RAG)
+                            // ==========================================
+                            const hashes = activeNotebook.files.map(f => f.fileHash);
+                            
+                            // Embed Pertanyaan
+                            const embedResult = await ai.models.embedContent({
+                                model: 'text-embedding-004', // Menggunakan model embedding terbaru
+                                contents: pertanyaanUser
+                            });
+                            const vektorPertanyaan = embedResult.embeddings[0].values;
+
+                            // Cari di Milvus
+                            const hashFilter = `fileHash in [${hashes.map(h => `"${h}"`).join(',')}]`;
+                            const searchRes = await milvusClient.search({
+                                collection_name: "notebook_amamiya",
+                                vector: vektorPertanyaan,
+                                filter: hashFilter,
+                                output_fields: ["text_content", "page_number", "fileHash"],
+                                limit: 3 // Ambil 3 konteks teratas agar respon AI tetap cepat
+                            });
+
+                            if (searchRes.results.length > 0) {
+                                searchRes.results.forEach((res) => {
+                                    konteksGabungan += `[Hal: ${res.page_number}]\n${res.text_content}\n\n`;
+                                });
+                                console.log(`✅ [MILVUS] Konteks referensi berhasil ditarik.`);
+                            }
+                        }
+
+                        // ==========================================
+                        // TAHAP 2: OTAK (LOGIKA & EMOSI)
+                        // ==========================================
+                        console.log(`[GEMINI OTAK] Menganalisis respon...`);
+                        
+                        let promptOtak = 'Dengarkan suara ini. Balas sebagai asisten VTuber medis yang cerdas dan imut. Jawab singkat maksimal 2 kalimat. Balas WAJIB dalam format JSON murni: {"teks": "jawabanmu", "emosi": "happy/sad/angry/neutral/surprised", "gaya_bicara": "deskripsi singkat gaya bicara untuk TTS, misal: ceria dan antusias"}';
+
+                        // Injeksi konteks Milvus jika ada
+                        if (konteksGabungan !== "") {
+                            promptOtak = `Berikut adalah referensi medis dari buku catatan pengguna:\n${konteksGabungan}\n\nBerdasarkan audio pertanyaan pengguna dan referensi medis di atas, balas sebagai asisten VTuber medis yang presisi. Jawab singkat maksimal 2 kalimat. Balas WAJIB dalam format JSON murni: {"teks": "jawabanmu", "emosi": "happy/sad/angry/neutral/surprised", "gaya_bicara": "deskripsi singkat gaya bicara untuk TTS"}`;
+                        }
+
+                        const responseLLM = await ai.models.generateContent({
+                            model: 'gemini-2.5-flash',
                             contents: [
                                 {
                                     role: 'user',
                                     parts: [
-                                        { text: 'Dengarkan suara ini. Balas sebagai asisten VTuber yang ceria dan singkat. WAJIB awali teks balasanmu dengan salah satu tag emosi persis seperti ini: [HAPPY], [SAD], [ANGRY], [SURPRISED], atau [NEUTRAL].' },
+                                        { text: promptOtak },
                                         { inlineData: { mimeType: 'audio/wav', data: base64Audio } }
                                     ]
                                 }
-                            ]
+                            ],
+                            config: { responseMimeType: "application/json" }
                         });
 
-                        // 4. BONGKAR RESPONS DARI GEMINI (Teks + Audio)
-                        let teksBalasan = "";
-                        let audioBalasanBase64 = "";
+                        const hasilLogika = JSON.parse(responseLLM.text);
+                        console.log(`✅ [HASIL OTAK]:`, hasilLogika);
 
-                        // Ekstrak teks dan audio dari array of parts
-                        const parts = response.candidates[0].content.parts;
-                        for (const part of parts) {
-                            if (part.text) teksBalasan += part.text;
-                            if (part.inlineData && part.inlineData.mimeType.startsWith('audio/')) {
-                                audioBalasanBase64 = part.inlineData.data;
+                        // ==========================================
+                        // TAHAP 3: MULUT (TTS)
+                        // ==========================================
+                        console.log(`[GEMINI TTS] Merender suara...`);
+                        const responseTTS = await ai.models.generateContent({
+                            model: 'gemini-2.5-flash-preview-tts',
+                            contents: `
+                            # AUDIO PROFILE: Amamiya
+                            Asisten VTuber medis yang cerdas.
+                            
+                            ### DIRECTOR'S NOTES
+                            Style: ${hasilLogika.gaya_bicara}
+                            Accent: Indonesian.
+                            
+                            #### TRANSCRIPT
+                            ${hasilLogika.teks}
+                            `,
+                            config: {
+                                responseModalities: ["AUDIO"],
+                                speechConfig: {
+                                    voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } }
+                                }
                             }
-                        }
+                        });
 
-                        // 5. EKSTRAK KODE EMOSI
-                        let emosiFinal = "neutral";
-                        let teksFinal = teksBalasan.trim();
+                        const audioData = responseTTS.candidates[0].content.parts[0].inlineData.data;
 
-                        const match = teksFinal.match(/^\[(.*?)\]/); // Deteksi tag [EMOSI]
-                        if (match) {
-                            emosiFinal = match[1].toLowerCase();
-                            teksFinal = teksFinal.replace(match[0], '').trim(); // Buang tag agar tidak terbaca di subtitle
-                        }
-
-                        console.log(`✅ [HASIL AI] Emosi: ${emosiFinal} | Teks: ${teksFinal}`);
-
-                        // 6. KIRIM KE BROWSER WEB!
+                        // ==========================================
+                        // TAHAP 4: KIRIM KE BROWSER
+                        // ==========================================
                         interaction.client.io.emit('ai_speak', {
-                            teks: teksFinal,
-                            emosi: emosiFinal,
-                            audioData: audioBalasanBase64
+                            teks: hasilLogika.teks,
+                            emosi: hasilLogika.emosi,
+                            audioData: audioData
                         });
 
                     } catch (error) {
-                        console.error('❌ [GEMINI ERROR]:', error);
+                        console.error('❌ [GEMINI/MILVUS ERROR]:', error);
                         interaction.client.io.emit('ai_speak', {
-                            teks: "*[Maaf, API sedang bermasalah atau model tidak tersedia]*",
+                            teks: "*[Sistem database atau kognitifku sedang bermasalah]*",
                             emosi: "sad"
                         });
                     }
