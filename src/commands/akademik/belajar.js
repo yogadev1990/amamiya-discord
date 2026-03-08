@@ -261,34 +261,38 @@ module.exports = {
 
                 // 4. Ekstrak Konteks, Referensi, dan Gambar
                 let konteksGabungan = "";
-                let setReferensi = new Set();
+                let mapReferensi = new Map(); // Menggunakan Map untuk mengelompokkan file
                 let lampiranGambar = [];
 
                 searchRes.results.forEach((res) => {
                     const fileName = hashToNameMap[res.fileHash] || "Dokumen Tidak Diketahui";
                     
-                    // Susun konteks untuk dibaca Gemini
+                    // Susun konteks untuk AI
                     konteksGabungan += `[Dokumen: ${fileName} | Hal: ${res.page_number}]\n${res.text_content}\n\n`;
 
-                    // Susun teks referensi untuk ditampilkan ke user Discord
-                    // PERHATIAN: Ubah URL base di bawah dengan domain web server aktualmu
-                    const fileLink = `https://domain-perpustakaanmu.com/materi/${res.fileHash}.pdf`;
-                    setReferensi.add(`📄 **${fileName}** (Halaman ${res.page_number}) - [Buka PDF](${fileLink})`);
+                    // Kelompokkan halaman berdasarkan fileHash agar tidak ada duplikasi nama file
+                    if (!mapReferensi.has(res.fileHash)) {
+                        mapReferensi.set(res.fileHash, {
+                            fileName: fileName,
+                            pages: new Set([res.page_number])
+                        });
+                    } else {
+                        mapReferensi.get(res.fileHash).pages.add(res.page_number);
+                    }
 
-                    // Cek dan siapkan lampiran gambar jika vektor ini berasal dari gambar edukasi
+                    // Cek dan siapkan lampiran gambar
                     if (res.image_url && res.image_url.trim() !== "" && fs.existsSync(res.image_url)) {
                         const namaGambar = path.basename(res.image_url);
-                        // Hindari melampirkan gambar yang sama dua kali
                         if (!lampiranGambar.some(lampiran => lampiran.name === namaGambar)) {
                             lampiranGambar.push(new AttachmentBuilder(res.image_url, { name: namaGambar }));
                         }
                     }
                 });
 
-                // Batasi jumlah lampiran maksimal 10 (Limit dari Discord)
+                // Batasi jumlah lampiran maksimal 10
                 if (lampiranGambar.length > 10) lampiranGambar = lampiranGambar.slice(0, 10);
 
-                // 5. Prompting ke Gemini dengan aturan penyebutan sumber
+                // 5. Prompting ke Gemini dengan aturan penyebutan sumber yang lebih natural
                 const promptFinal = `
                 Berikut adalah potongan informasi dari buku catatan pengguna:
                 ====================
@@ -298,16 +302,24 @@ module.exports = {
                 
                 Aturan Mutlak:
                 1. Jawab HANYA berdasarkan informasi di atas.
-                2. Di akhir kalimat yang mengambil fakta dari dokumen, WAJIB tuliskan kutipan singkat seperti: (Sumber: [Nama Dokumen], Hal [X]).
-                3. Jika informasi tidak cukup, nyatakan dengan tegas bahwa dokumen tidak mencakup jawaban tersebut.
+                2. Buat penjelasan mengalir secara natural dan mudah dibaca.
+                3. JANGAN mengulang sumber yang sama di setiap baris/poin. Jika sebuah paragraf atau daftar berasal dari sumber dan halaman yang sama, cukup tuliskan sitasinya satu kali di akhir paragraf/daftar tersebut (Format: [Nama File, Hal X, Y]).
+                4. Jika informasi tidak cukup, nyatakan dengan tegas bahwa dokumen tidak mencakup jawaban tersebut.
                 `;
 
                 const chatModel = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
                 const jawabanFinal = await chatModel.generateContent(promptFinal);
                 let teksJawaban = jawabanFinal.response.text();
 
-                // Gabungkan teks AI dengan daftar referensi & link
-                const teksDaftarReferensi = Array.from(setReferensi).join('\n');
+                // 6. Susun daftar referensi yang sudah rapi
+                let teksDaftarReferensi = "";
+                mapReferensi.forEach((data, hash) => {
+                    // Urutkan halaman dari terkecil ke terbesar
+                    const listHalaman = Array.from(data.pages).sort((a, b) => a - b).join(', ');
+                    const fileLink = `https://is3.cloudhost.id/libraryrevanda/materi/${hash}.pdf`;
+                    teksDaftarReferensi += `📄 **${data.fileName}** (Hal: ${listHalaman}) - [Buka PDF](${fileLink})\n`;
+                });
+
                 let finalOutput = `${teksJawaban}\n\n**📚 Sumber Referensi yang Dipakai:**\n${teksDaftarReferensi}`;
 
                 // 6. Pengiriman ke Discord (Handling limit 2000 karakter)
