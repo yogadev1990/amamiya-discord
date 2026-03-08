@@ -302,7 +302,7 @@ module.exports = {
                 3. Jika informasi tidak cukup, nyatakan dengan tegas bahwa dokumen tidak mencakup jawaban tersebut.
                 `;
 
-                const chatModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+                const chatModel = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
                 const jawabanFinal = await chatModel.generateContent(promptFinal);
                 let teksJawaban = jawabanFinal.response.text();
 
