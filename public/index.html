@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI VTuber Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #1e1e2e; color: #cdd6f4; }
+        .kotak-pesan { margin: 20px auto; padding: 20px; width: 50%; background-color: #313244; border-radius: 10px; }
+        #emosi { font-weight: bold; color: #f38ba8; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <h2 id="status">🔴 Menunggu koneksi ke Bot...</h2>
+    
+    <div class="kotak-pesan">
+        <p><strong>Emosi:</strong> <span id="emosi">NEUTRAL</span></p>
+        <p><strong>Pesan AI:</strong> <span id="teks-ai">Belum ada pesan.</span></p>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Inisialisasi koneksi ke VPS/Server
+        const socket = io();
+
+        const statusEl = document.getElementById('status');
+        const emosiEl = document.getElementById('emosi');
+        const teksEl = document.getElementById('teks-ai');
+
+        // Saat berhasil nyambung ke web.js
+        socket.on('connect', () => {
+            statusEl.innerText = '🟢 Terhubung ke Bot Node.js!';
+            statusEl.style.color = '#a6e3a1';
+        });
+
+        // Saat koneksi terputus
+        socket.on('disconnect', () => {
+            statusEl.innerText = '🔴 Koneksi Terputus.';
+            statusEl.style.color = '#f38ba8';
+        });
+
+        // MENANGKAP SINYAL DARI DISCORD (via web.js)
+        socket.on('ai_speak', (data) => {
+            console.log("Data masuk:", data);
+            emosiEl.innerText = data.emosi;
+            teksEl.innerText = data.teks;
+            
+            // Di tahap selanjutnya, di sinilah logika Three.js / ChatVRM 
+            // akan dipanggil untuk menggerakkan bibir avatar!
+        });
+    </script>
+</body>
+</html>
