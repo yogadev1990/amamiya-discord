@@ -3,13 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amamiya 3D Avatar</title>
+    <title>Amamiya 3D Avatar (Lip-Sync)</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #b4befe; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #1e1e2e; font-family: sans-serif; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
-        #ui-layer { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; background: rgba(0,0,0,0.7); color: white; padding: 15px 30px; border-radius: 15px; width: 80%; max-width: 600px; display: none; }
-        #status { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.5); color: #a6e3a1; padding: 5px 10px; border-radius: 5px; font-weight: bold; }
+        
+        /* UI Subtitle */
+        #ui-layer { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); text-align: center; background: rgba(17, 17, 27, 0.8); color: #cdd6f4; padding: 15px 30px; border-radius: 15px; width: 80%; max-width: 700px; display: none; font-size: 1.2rem; line-height: 1.5; border: 2px solid #cba6f7; box-shadow: 0 4px 15px rgba(203, 166, 247, 0.3); }
+        
+        #status { position: absolute; top: 15px; left: 15px; background: rgba(17, 17, 27, 0.8); color: #a6e3a1; padding: 8px 15px; border-radius: 8px; font-weight: bold; border: 1px solid #a6e3a1; }
+        
+        /* Layar Pembuka untuk mengatasi aturan Autoplay Browser */
+        #start-screen { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(30, 30, 46, 0.95); color: #cba6f7; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; cursor: pointer; }
+        #start-screen h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        #start-screen p { font-size: 1.2rem; color: #a6adc8; }
     </style>
+
     <script type="importmap">
         {
             "imports": {
@@ -21,10 +30,13 @@
     </script>
 </head>
 <body>
-    <div id="status">🔴 Menghubungkan...</div>
-    <div id="ui-layer">
-        <h3 id="teks-ai" style="margin: 0;"></h3>
+    <div id="start-screen">
+        <h1>🎙️ Amamiya AI VTuber</h1>
+        <p>Klik layar di mana saja untuk memulai & mengaktifkan audio</p>
     </div>
+
+    <div id="status" style="display: none;">🔴 Menghubungkan...</div>
+    <div id="ui-layer"><h3 id="teks-ai" style="margin: 0;"></h3></div>
 
     <script type="module">
         import * as THREE from 'three';
@@ -32,48 +44,131 @@
         import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
         import { io } from "https://cdn.socket.io/4.7.2/socket.io.esm.min.js";
 
-        // --- 1. SETUP THREE.JS (Scene, Camera, Renderer) ---
+        // ==========================================
+        // 1. SETUP THREE.JS (Visual)
+        // ==========================================
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.1, 20);
-        camera.position.set(0, 1.4, 2.5); // Fokus ke wajah/pundak avatar
+        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 20);
+        camera.position.set(0, 1.45, 2.2); // Posisi kamera fokus di wajah dan pundak
 
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.outputColorSpace = THREE.SRGBColorSpace; // Agar warna anime lebih cerah
         document.body.appendChild(renderer.domElement);
 
-        // Pencahayaan
-        const light = new THREE.DirectionalLight(0xffffff, 1.0);
+        const light = new THREE.DirectionalLight(0xffffff, 1.2);
         light.position.set(1, 1, 1).normalize();
         scene.add(light);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
-        // --- 2. LOAD MODEL VRM ---
+        // ==========================================
+        // 2. LOAD MODEL VRM
+        // ==========================================
         let currentVrm = null;
         const loader = new GLTFLoader();
         loader.register((parser) => new VRMLoaderPlugin(parser));
 
-        // PASTIKAN NAMA FILE DI BAWAH INI SESUAI DENGAN FILE KAMU DI FOLDER PUBLIC
         loader.load('/avatar.vrm', (gltf) => {
             const vrm = gltf.userData.vrm;
             VRMUtils.removeUnnecessaryJoints(gltf.scene);
             scene.add(vrm.scene);
             currentVrm = vrm;
+            vrm.scene.rotation.y = Math.PI; // Menghadap depan
 
-            // Rotasi agar avatar menghadap depan
-            vrm.scene.rotation.y = Math.PI;
-            console.log('✅ Model VRM berhasil dimuat!');
-        }, undefined, (error) => console.error(error));
+            // Perbaikan T-Pose (Turunkan Lengan)
+            if (vrm.humanoid) {
+                const leftArm = vrm.humanoid.getNormalizedBoneNode('leftUpperArm');
+                const rightArm = vrm.humanoid.getNormalizedBoneNode('rightUpperArm');
+                if (leftArm) leftArm.rotation.z = 1.2;
+                if (rightArm) rightArm.rotation.z = -1.2;
+            }
+            console.log('✅ Model VRM siap!');
+        });
 
-        // --- 3. ANIMATION LOOP ---
+        // ==========================================
+        // 3. SISTEM AUDIO & LIP-SYNC (Web Audio API)
+        // ==========================================
+        let audioCtx, analyser, dataArray;
+        let isSpeaking = false;
+
+        function initAudioEngine() {
+            // Nyalakan mesin audio browser
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256; // Ketelitian frekuensi
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            console.log('🔊 Mesin Audio aktif!');
+        }
+
+        function putarAudioLipSync(base64Data) {
+            // Ubah Base64 kembali menjadi data biner (ArrayBuffer)
+            const binaryString = window.atob(base64Data);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            // Dekode dan mainkan!
+            audioCtx.decodeAudioData(bytes.buffer, (buffer) => {
+                const source = audioCtx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(analyser); // Sambungkan ke penganalisis frekuensi
+                analyser.connect(audioCtx.destination); // Sambungkan ke speaker laptop
+                
+                source.start(0);
+                isSpeaking = true;
+
+                // Saat audio selesai diputar
+                source.onended = () => {
+                    isSpeaking = false;
+                    // Tutup mulut & reset wajah
+                    if (currentVrm) {
+                        currentVrm.expressionManager.setValue('aa', 0);
+                        currentVrm.expressionManager.setValue('ih', 0);
+                        currentVrm.expressionManager.setValue('ou', 0);
+                        
+                        // Kembalikan ke ekspresi netral
+                        ['happy', 'sad', 'angry', 'surprised', 'neutral'].forEach(emo => 
+                            currentVrm.expressionManager.setValue(emo, 0)
+                        );
+                        currentVrm.expressionManager.setValue('neutral', 1.0);
+                    }
+                    document.getElementById('ui-layer').style.display = 'none';
+                };
+            });
+        }
+
+        // ==========================================
+        // 4. ANIMATION LOOP (Merender Mulut Bergetar)
+        // ==========================================
         const clock = new THREE.Clock();
         function animate() {
             requestAnimationFrame(animate);
             const deltaTime = clock.getDelta();
+            
             if (currentVrm) {
+                // Eksekusi Lip-Sync secara Real-Time per frame
+                if (isSpeaking && analyser) {
+                    analyser.getByteFrequencyData(dataArray);
+                    
+                    // Hitung rata-rata volume suara dari frekuensi
+                    let sum = 0;
+                    for(let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+                    let averageVolume = sum / dataArray.length;
+                    
+                    // Normalisasi volume menjadi skala 0.0 - 1.0 untuk bukaan mulut
+                    // Angka pembagi 40.0 adalah tingkat sensitivitas (bisa kamu ubah jika mulut kurang lebar)
+                    let mouthOpen = Math.min(1.0, averageVolume / 40.0);
+                    
+                    // Gerakkan blendshape vokal 'aa' sesuai volume
+                    currentVrm.expressionManager.setValue('aa', mouthOpen);
+                }
+
                 currentVrm.update(deltaTime);
-                // Efek nafas pelan
-                currentVrm.scene.position.y = Math.sin(clock.elapsedTime) * 0.01;
+                // Efek nafas halus
+                currentVrm.scene.position.y = Math.sin(clock.elapsedTime) * 0.005;
             }
             renderer.render(scene, camera);
         }
@@ -86,53 +181,48 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // --- 4. SOCKET.IO (JEMBATAN KE DISCORD BOT) ---
-        // Koneksi ke port yang sama dengan web server (7676 sesuai docker-compose mu)
+        // ==========================================
+        // 5. HUBUNGAN SOCKET & INTERAKSI
+        // ==========================================
         const socket = io();
+        const startScreen = document.getElementById('start-screen');
         const statusEl = document.getElementById('status');
         const uiLayer = document.getElementById('ui-layer');
         const teksEl = document.getElementById('teks-ai');
-        let expressionTimeout;
+
+        // Klik layar pembuka untuk memulai
+        startScreen.addEventListener('click', () => {
+            initAudioEngine();
+            startScreen.style.display = 'none';
+            statusEl.style.display = 'block';
+        });
 
         socket.on('connect', () => {
-            statusEl.innerText = '🟢 Sinyal Discord Terhubung';
+            statusEl.innerText = '🟢 Menunggu Suara dari Discord...';
             statusEl.style.color = '#a6e3a1';
+            statusEl.style.borderColor = '#a6e3a1';
         });
 
-        socket.on('disconnect', () => {
-            statusEl.innerText = '🔴 Sinyal Terputus';
-            statusEl.style.color = '#f38ba8';
-        });
-
-        // MENERIMA PERINTAH DARI DISCORD
         socket.on('ai_speak', (data) => {
-            console.log("Sinyal masuk:", data);
-            
-            // Tampilkan teks subtitle
-            teksEl.innerText = `"${data.teks}"`;
-            uiLayer.style.display = 'block';
+            console.log("Menerima data dari VPS!");
 
-            // Ganti ekspresi VRM
-            if (currentVrm && currentVrm.expressionManager) {
-                // Reset semua ekspresi ke nol dulu
-                currentVrm.expressionManager.setValue('happy', 0);
-                currentVrm.expressionManager.setValue('angry', 0);
-                currentVrm.expressionManager.setValue('sad', 0);
-                currentVrm.expressionManager.setValue('surprised', 0);
-                currentVrm.expressionManager.setValue('neutral', 0);
+            // 1. Tampilkan Teks
+            if(data.teks) {
+                teksEl.innerText = `"${data.teks}"`;
+                uiLayer.style.display = 'block';
+            }
 
-                // Set ekspresi sesuai perintah dari Discord
+            // 2. Terapkan Emosi
+            if (currentVrm && data.emosi) {
+                ['happy', 'sad', 'angry', 'surprised', 'neutral'].forEach(emo => 
+                    currentVrm.expressionManager.setValue(emo, 0)
+                );
                 currentVrm.expressionManager.setValue(data.emosi.toLowerCase(), 1.0);
+            }
 
-                // Kembalikan ke netral setelah 4 detik (simulasi selesai bicara)
-                clearTimeout(expressionTimeout);
-                expressionTimeout = setTimeout(() => {
-                    currentVrm.expressionManager.setValue(data.emosi.toLowerCase(), 0);
-                    currentVrm.expressionManager.setValue('neutral', 1.0);
-                    uiLayer.style.display = 'none';
-                }, 4000);
+            // 3. Putar Audio dan Mulai Lip-sync
+            if (data.audioData) {
+                putarAudioLipSync(data.audioData);
             }
         });
     </script>
-</body>
-</html>
