@@ -38,11 +38,11 @@ module.exports = {
                 // Tempelkan database utama Calibre agar bisa membaca judul buku
                 db.prepare(`ATTACH DATABASE '${dbCalibrePath}' AS metadata`).run();
                 
-                // Ekstrak data Rak Publik beserta isi bukunya
+                // Ekstrak data Rak Publik beserta isi bukunya (KUERI SESUAI SKEMA ASLI)
                 const rows = db.prepare(`
                     SELECT s.name AS shelf_name, b.title AS book_title
                     FROM shelf s
-                    JOIN book_shelf_link bsl ON s.id = bsl.shelf_id
+                    JOIN book_shelf_link bsl ON s.id = bsl.shelf
                     JOIN metadata.books b ON bsl.book_id = b.id
                     WHERE s.is_public = 1
                     ORDER BY s.name ASC, b.title ASC
