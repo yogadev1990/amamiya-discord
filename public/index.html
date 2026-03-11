@@ -31,38 +31,37 @@
         #start-screen h1 { font-size: 2.5rem; margin-bottom: 10px; }
         #start-screen p { font-size: 1.2rem; color: #a6adc8; }
         #slide-container {
-            position: absolute;
-            top: 50%;
-            right: 5%; /* Muncul di sebelah kanan layar */
-            transform: translateY(-50%);
-            width: 400px;
-            max-height: 70vh;
-            background: rgba(30, 30, 46, 0.85);
-            border: 2px solid #a6e3a1;
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(166, 227, 161, 0.4);
-            display: none; /* Disembunyikan secara default */
-            flex-direction: column;
-            overflow: hidden;
-            z-index: 50;
-            transition: opacity 0.5s ease-in-out;
-        }
+    position: absolute;
+    top: 30px;    /* Mengunci ke atas dengan jarak 30px */
+    right: 30px;  /* Mengunci ke kanan dengan jarak 30px */
+    width: 350px; /* Sedikit diperkecil (dari 400px) agar lebih rapi di sudut */
+    max-height: 60vh;
+    background: rgba(30, 30, 46, 0.85);
+    border: 2px solid #a6e3a1;
+    border-radius: 15px;
+    box-shadow: 0 0 20px rgba(166, 227, 161, 0.4);
+    display: none; 
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 50; /* Pastikan selalu berada di atas layer lain */
+    transition: opacity 0.5s ease-in-out;
+}
 
-        #slide-container img {
-            width: 100%;
-            height: auto;
-            object-fit: contain;
-            border-bottom: 1px solid #45475a;
-        }
+#slide-container img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    border-bottom: 1px solid #45475a;
+}
 
-        #slide-label {
-            padding: 10px;
-            text-align: center;
-            color: #a6e3a1;
-            font-weight: bold;
-            font-size: 1rem;
-            background: rgba(17, 17, 27, 0.9);
-        }
+#slide-label {
+    padding: 10px;
+    text-align: center;
+    color: #a1b3e3;
+    font-weight: bold;
+    font-size: 1rem;
+    background: rgba(17, 17, 27, 0.9);
+}
     </style>
 
 <script type="importmap">
@@ -84,12 +83,11 @@
     </div>
 
     <div id="status" style="display: none;">🔴 Menghubungkan...</div>
-    
-    <div id="ui-layer">
-        <div id="slide-container">
+    <div id="slide-container">
             <img id="slide-image" src="" alt="Materi Medis">
             <div id="slide-label">📚 Lampiran Materi</div>
         </div>
+    <div id="ui-layer">
         <h3 id="teks-ai" style="margin: 0;"></h3>
     </div>
 
