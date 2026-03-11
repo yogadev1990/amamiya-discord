@@ -42,16 +42,39 @@ socket.on('connect', () => {
     statusEl.innerText = '🟢 Amamiya Siap Mendengar';
 });
 
+const slideContainer = document.getElementById('slide-container');
+const slideImage = document.getElementById('slide-image');
+
 socket.on('ai_speak', (data) => {
     if (data.teks) {
         teksEl.innerText = `"${data.teks}"`;
         uiLayer.style.display = 'block';
     }
+    
     if (data.emosi) avatar.setEmotion(data.emosi);
+    
+    // --- FITUR SLIDE MATERI ---
+    if (data.gambarBase64) {
+        // Jika ada gambar, tampilkan slide
+        slideImage.src = `data:image/png;base64,${data.gambarBase64}`;
+        slideContainer.style.display = 'flex';
+        slideContainer.style.opacity = 1;
+        
+        // Buat Amamiya melihat ke arah slide (kanan)
+        avatar.bones.neck.rotation.y = -0.3; 
+    } else {
+        // Sembunyikan slide jika tidak ada gambar
+        slideContainer.style.opacity = 0;
+        setTimeout(() => slideContainer.style.display = 'none', 500);
+    }
+
     if (data.audioData) {
         audio.play(data.audioData, () => {
             uiLayer.style.display = 'none';
             avatar.setEmotion('neutral');
+            // Hapus komentar di bawah jika ingin slide otomatis hilang saat selesai bicara
+            // slideContainer.style.opacity = 0; 
+            // setTimeout(() => slideContainer.style.display = 'none', 500);
         });
     }
 });

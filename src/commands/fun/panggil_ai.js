@@ -206,19 +206,32 @@ module.exports = {
                         const hashFilter = `fileHash in [${hashes.map(h => `"${h}"`).join(',')}]`;
 
                         const searchRes = await milvusClient.search({
-                            collection_name: "notebook_amamiya",
-                            vector: vector,
-                            filter: hashFilter,
-                            output_fields: ["text_content", "page_number"],
-                            limit: 3
-                        });
+                                            collection_name: "notebook_amamiya",
+                                            vector: vector,
+                                            filter: hashFilter,
+                                            output_fields: ["text_content", "page_number", "image_url"], // Pastikan image_url ikut diambil
+                                            limit: 3
+                                        });
 
-                        if (searchRes.results.length > 0) {
-                            searchRes.results.forEach(r => {
-                                konteksGabungan += `[Hal ${r.page_number}]\n${r.text_content}\n\n`;
-                            });
-                        }
-                    }
+                                        let gambarBase64 = null;
+
+                                        if (searchRes.results.length > 0) {
+                                            for (const r of searchRes.results) {
+                                                konteksGabungan += `[Hal ${r.page_number}]\n${r.text_content}\n\n`;
+                                                
+                                                // Ambil gambar dari hasil pertama yang memiliki image_url valid
+                                                if (!gambarBase64 && r.image_url && fs.existsSync(r.image_url)) {
+                                                    try {
+                                                        // Baca file gambar fisik dan ubah ke Base64 agar bisa dikirim via Socket
+                                                        const imgBuffer = fs.readFileSync(r.image_url);
+                                                        gambarBase64 = imgBuffer.toString('base64');
+                                                    } catch (err) {
+                                                        console.error("Gagal membaca file gambar:", err);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
 
                     // --- LLM REASONING ---
                     console.log("🧠 Gemini reasoning...");
@@ -268,7 +281,8 @@ Balas JSON:
                     interaction.client.io.emit('ai_speak', {
                         teks: hasil.teks,
                         emosi: hasil.emosi,
-                        audioData: audioData
+                        audioData: audioData,
+                        gambarBase64: gambarBase64 // <-- Data gambar dikirim ke web!
                     });
 
                 } catch (error) {
