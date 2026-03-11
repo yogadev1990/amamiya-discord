@@ -24,4 +24,4 @@ server.listen(3000, () => {
 });
 
 // Ekspor io agar bisa ditarik oleh sistem command bot Discord
-module.exports = { io };
+//module.exports = { io };

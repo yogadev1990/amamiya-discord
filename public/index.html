@@ -3,289 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amamiya 3D Avatar - Optimized</title>
+    <title>Amamiya 3D Avatar - Modular</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #1e1e2e; font-family: sans-serif; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
         
-        #ui-layer { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); text-align: center; background: rgba(17, 17, 27, 0.8); color: #cdd6f4; padding: 15px 30px; border-radius: 15px; width: 80%; max-width: 700px; display: none; font-size: 1.2rem; line-height: 1.5; border: 2px solid #cba6f7; box-shadow: 0 4px 15px rgba(203, 166, 247, 0.3); }
-        #status { position: absolute; top: 15px; left: 15px; background: rgba(17, 17, 27, 0.8); color: #a6e3a1; padding: 8px 15px; border-radius: 8px; font-weight: bold; border: 1px solid #a6e3a1; }
+        #ui-layer { 
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); 
+            text-align: center; background: rgba(17, 17, 27, 0.8); color: #cdd6f4; 
+            padding: 15px 30px; border-radius: 15px; width: 80%; max-width: 700px; 
+            display: none; font-size: 1.2rem; line-height: 1.5; 
+            border: 2px solid #cba6f7; box-shadow: 0 4px 15px rgba(203, 166, 247, 0.3); 
+        }
+
+        #status { 
+            position: absolute; top: 15px; left: 15px; background: rgba(17, 17, 27, 0.8); 
+            color: #a6e3a1; padding: 8px 15px; border-radius: 8px; font-weight: bold; 
+            border: 1px solid #a6e3a1; 
+        }
         
-        #start-screen { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(30, 30, 46, 0.95); color: #cba6f7; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; cursor: pointer; }
+        #start-screen { 
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; 
+            background: rgba(30, 30, 46, 0.95); color: #cba6f7; display: flex; 
+            flex-direction: column; justify-content: center; align-items: center; 
+            z-index: 100; cursor: pointer; 
+        }
         #start-screen h1 { font-size: 2.5rem; margin-bottom: 10px; }
         #start-screen p { font-size: 1.2rem; color: #a6adc8; }
     </style>
 
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.154.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.154.0/examples/jsm/",
-                "@pixiv/three-vrm": "https://unpkg.com/@pixiv/three-vrm@2.0.0/lib/three-vrm.module.js"
-            }
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.154.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.154.0/examples/jsm/",
+            "@pixiv/three-vrm": "https://unpkg.com/@pixiv/three-vrm@3.5.0/lib/three-vrm.module.js",
+            "@pixiv/three-vrm-animation": "https://unpkg.com/@pixiv/three-vrm-animation@3.5.0/lib/three-vrm-animation.module.js"
         }
-    </script>
+    }
+</script>
 </head>
 <body>
+
     <div id="start-screen">
         <h1>🎙️ Amamiya AI VTuber</h1>
         <p>Klik layar untuk membangunkan avatar</p>
     </div>
 
     <div id="status" style="display: none;">🔴 Menghubungkan...</div>
-    <div id="ui-layer"><h3 id="teks-ai" style="margin: 0;"></h3></div>
+    
+    <div id="ui-layer">
+        <h3 id="teks-ai" style="margin: 0;"></h3>
+    </div>
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-        import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
-        import { io } from "https://cdn.socket.io/4.7.2/socket.io.esm.min.js";
+    <script type="module" src="./src/main.js"></script>
 
-        // ==========================================
-        // 1. SETUP THREE.JS
-        // ==========================================
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 20);
-        camera.position.set(0, 1.45, 2.2);
-
-        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.outputColorSpace = THREE.SRGBColorSpace;
-        document.body.appendChild(renderer.domElement);
-
-        const light = new THREE.DirectionalLight(0xffffff, 1.2);
-        light.position.set(1, 1, 1).normalize();
-        scene.add(light);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-
-        // ==========================================
-        // 2. LOAD MODEL VRM & SIMPAN REFERENSI TULANG
-        // ==========================================
-        let currentVrm = null;
-        const vrmBones = {}; // Wadah untuk menyimpan tulang agar mudah diakses
-
-        const loader = new GLTFLoader();
-        loader.register((parser) => new VRMLoaderPlugin(parser));
-
-        loader.load('/avatar.vrm', (gltf) => {
-            const vrm = gltf.userData.vrm;
-            VRMUtils.removeUnnecessaryJoints(gltf.scene);
-            scene.add(vrm.scene);
-            currentVrm = vrm;
-            vrm.scene.rotation.y = Math.PI;
-
-            if (vrm.humanoid) {
-                // Ekstrak tulang penting untuk animasi idle
-                vrmBones.neck = vrm.humanoid.getNormalizedBoneNode('neck');
-                vrmBones.spine = vrm.humanoid.getNormalizedBoneNode('spine');
-                vrmBones.chest = vrm.humanoid.getNormalizedBoneNode('chest');
-                vrmBones.leftArm = vrm.humanoid.getNormalizedBoneNode('leftUpperArm');
-                vrmBones.rightArm = vrm.humanoid.getNormalizedBoneNode('rightUpperArm');
-
-                // Terapkan postur rileks dasar
-                if (vrmBones.leftArm) vrmBones.leftArm.rotation.z = 1.2;
-                if (vrmBones.rightArm) vrmBones.rightArm.rotation.z = -1.2;
-            }
-            console.log('✅ Model VRM dengan Tulang Kinematik siap!');
-        });
-
-        // ==========================================
-        // 3. SISTEM AUDIO & LIP-SYNC
-        // ==========================================
-        let audioCtx, analyser, dataArray;
-        let isSpeaking = false;
-
-        function initAudioEngine() {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 256;
-            dataArray = new Uint8Array(analyser.frequencyBinCount);
-        }
-        
-        function createWavFromPCM(base64PCM, sampleRate = 24000) {
-
-    const binary = atob(base64PCM);
-    const pcmLength = binary.length;
-    const pcmData = new Uint8Array(pcmLength);
-
-    for (let i = 0; i < pcmLength; i++) {
-        pcmData[i] = binary.charCodeAt(i);
-    }
-
-    const buffer = new ArrayBuffer(44 + pcmLength);
-    const view = new DataView(buffer);
-
-    function writeString(offset, string) {
-        for (let i = 0; i < string.length; i++) {
-            view.setUint8(offset + i, string.charCodeAt(i));
-        }
-    }
-
-    writeString(0, "RIFF");
-    view.setUint32(4, 36 + pcmLength, true);
-    writeString(8, "WAVE");
-    writeString(12, "fmt ");
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, 1, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true);
-    view.setUint16(32, 2, true);
-    view.setUint16(34, 16, true);
-    writeString(36, "data");
-    view.setUint32(40, pcmLength, true);
-
-    new Uint8Array(buffer, 44).set(pcmData);
-
-    return new Blob([buffer], { type: "audio/wav" });
-}
-
-function putarAudioLipSync(base64Data) {
-
-    const wavBlob = createWavFromPCM(base64Data, 24000);
-    const audioURL = URL.createObjectURL(wavBlob);
-
-    const audio = new Audio(audioURL);
-
-    const source = audioCtx.createMediaElementSource(audio);
-    source.connect(analyser);
-    analyser.connect(audioCtx.destination);
-
-    audio.play();
-    isSpeaking = true;
-
-    audio.onended = () => {
-        isSpeaking = false;
-        URL.revokeObjectURL(audioURL);
-
-        if (currentVrm) {
-            currentVrm.expressionManager.setValue('aa', 0);
-            currentVrm.expressionManager.setValue('neutral', 1);
-        }
-
-        document.getElementById('ui-layer').style.display = 'none';
-    };
-}
-
-        // ==========================================
-        // 4. ANIMATION LOOP (IDLE, BLINK, & LIP-SYNC)
-        // ==========================================
-        const clock = new THREE.Clock();
-        
-        // Variabel untuk sistem kedip
-        let blinkState = 0; 
-        let blinkProgress = 0;
-        let nextBlinkTime = 3;
-
-        function animate() {
-            requestAnimationFrame(animate);
-            const deltaTime = clock.getDelta();
-            const time = clock.elapsedTime;
-            
-            if (currentVrm) {
-                // --- A. ANIMASI IDLE (NATURAL MOVEMENT) ---
-                if (vrmBones.chest) vrmBones.chest.rotation.x = Math.sin(time * 2) * 0.015; // Dada naik turun (napas)
-                if (vrmBones.spine) vrmBones.spine.rotation.z = Math.sin(time * 0.8) * 0.02; // Tubuh sedikit goyang
-                
-                if (vrmBones.neck) {
-                    vrmBones.neck.rotation.y = Math.sin(time * 0.5) * 0.03; // Geleng kepala halus
-                    vrmBones.neck.rotation.x = Math.sin(time * 1.2) * 0.01; // Anggukan kecil
-                }
-                
-                if (vrmBones.leftArm && vrmBones.rightArm) {
-                    vrmBones.leftArm.rotation.z = 1.2 + Math.sin(time * 1.5) * 0.02; // Ayunan lengan kiri
-                    vrmBones.rightArm.rotation.z = -1.2 - Math.sin(time * 1.5) * 0.02; // Ayunan lengan kanan
-                }
-
-                // --- B. SISTEM KEDIP OTOMATIS (AUTO-BLINK) ---
-                if (blinkState === 0) {
-                    if (time > nextBlinkTime) {
-                        blinkState = 1; // Mulai menutup mata
-                        nextBlinkTime = time + 2 + Math.random() * 4; // Jadwalkan kedip berikutnya (2-6 detik)
-                    }
-                } else {
-                    const blinkSpeed = 18 * deltaTime; // Kecepatan kelopak mata
-                    if (blinkState === 1) {
-                        blinkProgress += blinkSpeed;
-                        if (blinkProgress >= 1) {
-                            blinkProgress = 1;
-                            blinkState = 2; // Mulai membuka mata
-                        }
-                    } else if (blinkState === 2) {
-                        blinkProgress -= blinkSpeed;
-                        if (blinkProgress <= 0) {
-                            blinkProgress = 0;
-                            blinkState = 0; // Selesai berkedip
-                        }
-                    }
-                    currentVrm.expressionManager.setValue('blink', blinkProgress);
-                }
-
-                // --- C. LIP-SYNC AUDIO ---
-                if (isSpeaking && analyser) {
-                    analyser.getByteFrequencyData(dataArray);
-                    let sum = 0;
-                    for(let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-                    let averageVolume = sum / dataArray.length;
-                    
-let mouthOpen = Math.min(1.0, averageVolume / 45.0);
-mouthOpen = THREE.MathUtils.lerp(
-    currentVrm.expressionManager.getValue('aa'),
-    mouthOpen,
-    0.5
-);
-                }
-
-                currentVrm.update(deltaTime);
-            }
-            renderer.render(scene, camera);
-        }
-        animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        // ==========================================
-        // 5. SOCKET.IO
-        // ==========================================
-        const socket = io();
-        const startScreen = document.getElementById('start-screen');
-        const statusEl = document.getElementById('status');
-        const uiLayer = document.getElementById('ui-layer');
-        const teksEl = document.getElementById('teks-ai');
-
-        startScreen.addEventListener('click', () => {
-            initAudioEngine();
-            startScreen.style.display = 'none';
-            statusEl.style.display = 'block';
-        });
-
-        socket.on('connect', () => {
-            statusEl.innerText = '🟢 Amamiya Siap Mendengar';
-            statusEl.style.color = '#a6e3a1';
-        });
-
-        socket.on('ai_speak', (data) => {
-            if(data.teks) {
-                teksEl.innerText = `"${data.teks}"`;
-                uiLayer.style.display = 'block';
-            }
-
-            if (currentVrm && data.emosi) {
-                ['happy', 'sad', 'angry', 'surprised', 'neutral'].forEach(emo => 
-                    currentVrm.expressionManager.setValue(emo, 0)
-                );
-                currentVrm.expressionManager.setValue(data.emosi.toLowerCase(), 1.0);
-            }
-
-            if (data.audioData) {
-                putarAudioLipSync(data.audioData);
-            }
-        });
-    </script>
 </body>
 </html>
