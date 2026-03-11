@@ -182,7 +182,7 @@ module.exports = {
                     console.log("📜 Transkrip:", pertanyaanUser);
 
                     // --- WAKE WORD ---
-                    if (!pertanyaanUser.toLowerCase().includes("amamiya")) {
+                    if (!pertanyaanUser.toLowerCase().includes("halo")) {
                         console.log("🔕 Tidak ada wake word");
                         return; // Langsung return, blok `finally` akan menangani `isProcessing = false`
                     }
