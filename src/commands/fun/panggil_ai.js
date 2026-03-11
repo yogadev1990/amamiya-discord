@@ -93,7 +93,7 @@ module.exports = {
 
         try {
             session = await ai.live.connect({
-                model: 'models/gemini-2.5-flash-native-audio', // Model khusus audio real-time
+                model: 'models/gemini-live-2.5-flash-native-audio', // Model khusus audio real-time
                 config: {
                     tools: [searchMedicalTool],
                     // Modality ditambahkan TEXT agar main.js tetap menerima subtitle
