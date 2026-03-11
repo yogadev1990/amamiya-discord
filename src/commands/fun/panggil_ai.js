@@ -276,7 +276,7 @@ Balas JSON:
                         contents: `Style: ${hasil.gaya_bicara}\n${hasil.teks}`,
                         config: {
                             responseModalities: ["AUDIO"],
-                            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } }
+                            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Despina' } } }
                         }
                     }), 15000);
 
