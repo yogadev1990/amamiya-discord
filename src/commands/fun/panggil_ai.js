@@ -104,119 +104,120 @@ module.exports = {
                     speechConfig: {
                         voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Despina' } }
                     }
-                }
-            });
-
-            console.log("✅ WebSocket Gemini Live Terhubung!");
-
-            // 3. MENANGANI JAWABAN DARI GEMINI (EVENT LISTENER)
-            session.receive().then(async function listenLoop() {
-                for await (const message of session.receive()) {
-                    
-                    // A. TANGKAP AUDIO & TEKS
-                    if (message.serverContent?.modelTurn?.parts) {
-                        for (const part of message.serverContent.modelTurn.parts) {
-                            // Tangkap Audio
-                            if (part.inlineData && part.inlineData.data) {
-                                currentAudioChunks.push(Buffer.from(part.inlineData.data, 'base64'));
-                            }
-                            // Tangkap Teks Subtitle
-                            if (part.text) {
-                                currentTextChunks.push(part.text);
+                },
+                // PERBAIKAN MUTLAK: Gunakan Callbacks, BUKAN session.receive()
+                callbacks: {
+                    onopen: () => {
+                        console.log("✅ WebSocket Gemini Live Terhubung!");
+                    },
+                    onmessage: async (message) => {
+                        // A. TANGKAP AUDIO & TEKS
+                        if (message.serverContent?.modelTurn?.parts) {
+                            for (const part of message.serverContent.modelTurn.parts) {
+                                // Tangkap Audio
+                                if (part.inlineData && part.inlineData.data) {
+                                    currentAudioChunks.push(Buffer.from(part.inlineData.data, 'base64'));
+                                }
+                                // Tangkap Teks Subtitle
+                                if (part.text) {
+                                    currentTextChunks.push(part.text);
+                                }
                             }
                         }
-                    }
 
-                    // B. TANGKAP PANGGILAN ALAT (MILVUS FUNCTION CALLING)
-                    if (message.toolCall) {
-                        console.log("🛠️ AI Memanggil Alat Milvus!");
-                        const call = message.toolCall.functionCalls[0];
-                        
-                        if (call.name === "search_medical_reference") {
-                            interaction.client.io.emit('ai_speak', { teks: "*[Membuka arsip jurnal medis...]*", emosi: "neutral" });
+                        // B. TANGKAP PANGGILAN ALAT (MILVUS FUNCTION CALLING)
+                        if (message.toolCall) {
+                            console.log("🛠️ AI Memanggil Alat Milvus!");
+                            const call = message.toolCall.functionCalls[0];
                             
-                            const query = call.args.query;
-                            let hasilPencarian = "Data tidak ditemukan di database.";
-                            
-                            try {
-                                const userProfile = await User.findOne({ userId: interaction.user.id });
-                                const activeNotebook = userProfile?.activeNotebook ? await Notebook.findById(userProfile.activeNotebook) : null;
+                            if (call.name === "search_medical_reference") {
+                                interaction.client.io.emit('ai_speak', { teks: "*[Membuka arsip jurnal medis...]*", emosi: "neutral" });
+                                
+                                const query = call.args?.query || "";
+                                let hasilPencarian = "Data tidak ditemukan di database.";
+                                
+                                try {
+                                    const userProfile = await User.findOne({ userId: interaction.user.id });
+                                    const activeNotebook = userProfile?.activeNotebook ? await Notebook.findById(userProfile.activeNotebook) : null;
 
-                                if (activeNotebook && activeNotebook.files.length > 0) {
-                                    // Proses Embed Query
-                                    const embedResult = await ai.models.embedContent({
-                                        model: 'gemini-embedding-001',
-                                        contents: query
-                                    });
-                                    
-                                    const vector = embedResult.embeddings[0].values;
-                                    const hashes = activeNotebook.files.map(f => f.fileHash);
-                                    const hashFilter = `fileHash in [${hashes.map(h => `"${h}"`).join(',')}]`;
-
-                                    // Proses Search Milvus
-                                    const searchRes = await milvusClient.search({
-                                        collection_name: "notebook_amamiya",
-                                        vector: vector,
-                                        filter: hashFilter,
-                                        output_fields: ["text_content", "page_number", "image_url"],
-                                        limit: 2
-                                    });
-
-                                    if (searchRes.results.length > 0) {
-                                        hasilPencarian = searchRes.results.map(r => `Halaman ${r.page_number}: ${r.text_content}`).join("\n\n");
+                                    if (activeNotebook && activeNotebook.files.length > 0) {
+                                        // Proses Embed Query
+                                        const embedResult = await ai.models.embedContent({
+                                            model: 'gemini-embedding-001',
+                                            contents: query
+                                        });
                                         
-                                        // Cek gambar
-                                        for (const r of searchRes.results) {
-                                            if (r.image_url && fs.existsSync(r.image_url)) {
-                                                activeImages.push(fs.readFileSync(r.image_url).toString('base64'));
+                                        const vector = embedResult.embeddings[0].values;
+                                        const hashes = activeNotebook.files.map(f => f.fileHash);
+                                        const hashFilter = `fileHash in [${hashes.map(h => `"${h}"`).join(',')}]`;
+
+                                        // Proses Search Milvus
+                                        const searchRes = await milvusClient.search({
+                                            collection_name: "notebook_amamiya",
+                                            vector: vector,
+                                            filter: hashFilter,
+                                            output_fields: ["text_content", "page_number", "image_url"],
+                                            limit: 2
+                                        });
+
+                                        if (searchRes.results.length > 0) {
+                                            hasilPencarian = searchRes.results.map(r => `Halaman ${r.page_number}: ${r.text_content}`).join("\n\n");
+                                            
+                                            // Cek gambar
+                                            for (const r of searchRes.results) {
+                                                if (r.image_url && fs.existsSync(r.image_url)) {
+                                                    activeImages.push(fs.readFileSync(r.image_url).toString('base64'));
+                                                }
                                             }
                                         }
                                     }
+                                } catch (e) {
+                                    console.error("Milvus Error:", e);
                                 }
-                            } catch (e) {
-                                console.error("Milvus Error:", e);
+
+                                // Kirim Hasil Milvus Kembali ke Gemini
+                                console.log("➡️ Mengirim hasil Milvus ke Gemini...");
+                                session.sendClientContent({
+                                    toolResponse: {
+                                        functionResponses: [{
+                                            id: call.id,
+                                            name: call.name,
+                                            response: { result: hasilPencarian }
+                                        }]
+                                    }
+                                });
                             }
-
-                            // Kirim Hasil Milvus Kembali ke Gemini
-                            console.log("➡️ Mengirim hasil Milvus ke Gemini...");
-                            session.sendClientContent({
-                                toolResponse: {
-                                    functionResponses: [{
-                                        id: call.id,
-                                        name: call.name,
-                                        response: { result: hasilPencarian }
-                                    }]
-                                }
-                            });
                         }
-                    }
 
-                    // C. DETEKSI GILIRAN BICARA SELESAI (TURN COMPLETE)
-                    if (message.serverContent?.turnComplete) {
-                        if (currentAudioChunks.length > 0) {
-                            console.log("🔊 Mengirim audio respons utuh ke VTuber UI");
-                            const fullPcmBuffer = Buffer.concat(currentAudioChunks);
-                            const fullText = currentTextChunks.join(""); // Gabungkan teks subtitle
-                            
-                            // Live API default output PCM adalah 24kHz
-                            const wavHeader = getWavHeader(fullPcmBuffer.length, 24000);
-                            const wavBuffer = Buffer.concat([wavHeader, fullPcmBuffer]);
-                            
-                            interaction.client.io.emit('ai_speak', {
-                                audioData: wavBuffer.toString('base64'),
-                                teks: fullText.trim() !== "" ? fullText : undefined, // Kirim teks ke main.js
-                                emosi: "happy", 
-                                gambarBase64: activeImages.length > 0 ? activeImages[0] : null
-                            });
+                        // C. DETEKSI GILIRAN BICARA SELESAI (TURN COMPLETE)
+                        if (message.serverContent?.turnComplete) {
+                            if (currentAudioChunks.length > 0) {
+                                console.log("🔊 Mengirim audio respons utuh ke VTuber UI");
+                                const fullPcmBuffer = Buffer.concat(currentAudioChunks);
+                                const fullText = currentTextChunks.join(""); // Gabungkan teks subtitle
+                                
+                                // Live API default output PCM adalah 24kHz
+                                const wavHeader = getWavHeader(fullPcmBuffer.length, 24000);
+                                const wavBuffer = Buffer.concat([wavHeader, fullPcmBuffer]);
+                                
+                                interaction.client.io.emit('ai_speak', {
+                                    audioData: wavBuffer.toString('base64'),
+                                    teks: fullText.trim() !== "" ? fullText : undefined, // Kirim teks ke main.js
+                                    emosi: "happy", 
+                                    gambarBase64: activeImages.length > 0 ? activeImages[0] : null
+                                });
 
-                            // Reset penampung untuk percakapan berikutnya
-                            currentAudioChunks = [];
-                            currentTextChunks = [];
-                            activeImages = [];
+                                // Reset penampung untuk percakapan berikutnya
+                                currentAudioChunks = [];
+                                currentTextChunks = [];
+                                activeImages = [];
+                            }
                         }
-                    }
+                    },
+                    onerror: (e) => console.error("❌ Gemini Live Error:", e),
+                    onclose: (e) => console.log("🔌 Gemini Live Ditutup:", e?.reason || "")
                 }
-            })(); // Eksekusi fungsi loop asinkron secara langsung
+            });
         } catch (error) {
             console.error("Gagal terhubung ke Gemini Live:", error);
             return;
