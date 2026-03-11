@@ -2,12 +2,18 @@ const { SlashCommandBuilder } = require('discord.js');
 const { joinVoiceChannel, EndBehaviorType } = require('@discordjs/voice');
 const prism = require('prism-media');
 const { GoogleGenAI } = require('@google/genai');
+const fs = require("fs");
+const path = require("path");
 const { MilvusClient } = require("@zilliz/milvus2-sdk-node");
 
 // DATABASE
 const User = require('../../models/User');
 const Notebook = require('../../models/Notebook');
+const STORAGE_PATH = "/materi"; // Menggunakan volume mount
 
+if (!fs.existsSync(STORAGE_PATH)) {
+    fs.mkdirSync(STORAGE_PATH, { recursive: true });
+}
 // INIT CLIENT
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
