@@ -154,90 +154,88 @@ module.exports = {
                 }
 
                 // KUNCI PERBAIKAN: Set bendera dan gunakan blok try...finally
-                isProcessing = true;
+isProcessing = true;
 
-                try {
-                    const wavHeader = getWavHeader(finalPcmBuffer.length);
-                    const wavBuffer = Buffer.concat([wavHeader, finalPcmBuffer]);
-                    const base64Audio = wavBuffer.toString('base64');
+try {
+    const wavHeader = getWavHeader(finalPcmBuffer.length);
+    const wavBuffer = Buffer.concat([wavHeader, finalPcmBuffer]);
+    const base64Audio = wavBuffer.toString('base64');
 
-                    interaction.client.io.emit('ai_speak', {
-                        teks: "*[Sedang mencerna...]*",
-                        emosi: "neutral"
-                    });
+    interaction.client.io.emit('ai_speak', {
+        teks: "*[Sedang mencerna...]*",
+        emosi: "neutral"
+    });
 
-                    let konteksGabungan = "";
-                    let pertanyaanUser = "";
+    // 1. PINDAHKAN DEKLARASI KE SINI (Global untuk blok try ini)
+    let konteksGabungan = "";
+    let pertanyaanUser = "";
+    let gambarBase64 = null; // <-- DEKLARASIKAN DI SINI
 
-                    // --- STT ---
-                    console.log("🧠 STT memproses audio...");
-                    
-                    // KUNCI PERBAIKAN: Menggunakan fungsi pembatas waktu (15 detik) untuk STT
-                    const sttResponse = await withTimeout(ai.models.generateContent({
-                        model: 'gemini-2.5-flash',
-                        contents: [{
-                            role: 'user',
-                            parts: [
-                                { text: 'Transkrip audio ini menjadi teks.' },
-                                { inlineData: { mimeType: 'audio/wav', data: base64Audio } }
-                            ]
-                        }]
-                    }), 15000);
+    // --- STT ---
+    console.log("🧠 STT memproses audio...");
+    
+    const sttResponse = await withTimeout(ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [{
+            role: 'user',
+            parts: [
+                { text: 'Transkrip audio ini menjadi teks.' },
+                { inlineData: { mimeType: 'audio/wav', data: base64Audio } }
+            ]
+        }]
+    }), 15000);
 
-                    pertanyaanUser = sttResponse.text.trim();
-                    console.log("📜 Transkrip:", pertanyaanUser);
+    pertanyaanUser = sttResponse.text.trim();
+    console.log("📜 Transkrip:", pertanyaanUser);
 
-                    // --- WAKE WORD ---
-                    if (!pertanyaanUser.toLowerCase().includes("halo")) {
-                        console.log("🔕 Tidak ada wake word");
-                        return; // Langsung return, blok `finally` akan menangani `isProcessing = false`
+    // --- WAKE WORD ---
+    if (!pertanyaanUser.toLowerCase().includes("halo")) {
+        console.log("🔕 Tidak ada wake word");
+        return; 
+    }
+
+    // --- LOAD NOTEBOOK (Milvus) ---
+    const userProfile = await User.findOne({ userId: interaction.user.id });
+    const activeNotebook = userProfile?.activeNotebook
+        ? await Notebook.findById(userProfile.activeNotebook)
+        : null;
+
+    if (activeNotebook && activeNotebook.files.length > 0) {
+        console.log("📚 Mencari referensi di Milvus");
+        const hashes = activeNotebook.files.map(f => f.fileHash);
+
+        const embedResult = await withTimeout(ai.models.embedContent({
+            model: 'gemini-embedding-001',
+            contents: pertanyaanUser
+        }), 10000);
+
+        const vector = embedResult.embeddings[0].values;
+        const hashFilter = `fileHash in [${hashes.map(h => `"${h}"`).join(',')}]`;
+
+        const searchRes = await milvusClient.search({
+            collection_name: "notebook_amamiya",
+            vector: vector,
+            filter: hashFilter,
+            output_fields: ["text_content", "page_number", "image_url"], 
+            limit: 3
+        });
+
+        // 2. HAPUS 'let gambarBase64 = null;' DARI SINI
+        if (searchRes.results.length > 0) {
+            for (const r of searchRes.results) {
+                konteksGabungan += `[Hal ${r.page_number}]\n${r.text_content}\n\n`;
+                
+                if (!gambarBase64 && r.image_url && fs.existsSync(r.image_url)) {
+                    try {
+                        const imgBuffer = fs.readFileSync(r.image_url);
+                        gambarBase64 = imgBuffer.toString('base64');
+                    } catch (err) {
+                        console.error("Gagal membaca file gambar:", err);
                     }
-
-                    // --- LOAD NOTEBOOK (Milvus) ---
-                    const userProfile = await User.findOne({ userId: interaction.user.id });
-                    const activeNotebook = userProfile?.activeNotebook
-                        ? await Notebook.findById(userProfile.activeNotebook)
-                        : null;
-
-                    if (activeNotebook && activeNotebook.files.length > 0) {
-                        console.log("📚 Mencari referensi di Milvus");
-                        const hashes = activeNotebook.files.map(f => f.fileHash);
-
-                        const embedResult = await withTimeout(ai.models.embedContent({
-                            model: 'gemini-embedding-001',
-                            contents: pertanyaanUser
-                        }), 10000);
-
-                        const vector = embedResult.embeddings[0].values;
-                        const hashFilter = `fileHash in [${hashes.map(h => `"${h}"`).join(',')}]`;
-
-                        const searchRes = await milvusClient.search({
-                                            collection_name: "notebook_amamiya",
-                                            vector: vector,
-                                            filter: hashFilter,
-                                            output_fields: ["text_content", "page_number", "image_url"], // Pastikan image_url ikut diambil
-                                            limit: 3
-                                        });
-
-                                        let gambarBase64 = null;
-
-                                        if (searchRes.results.length > 0) {
-                                            for (const r of searchRes.results) {
-                                                konteksGabungan += `[Hal ${r.page_number}]\n${r.text_content}\n\n`;
-                                                
-                                                // Ambil gambar dari hasil pertama yang memiliki image_url valid
-                                                if (!gambarBase64 && r.image_url && fs.existsSync(r.image_url)) {
-                                                    try {
-                                                        // Baca file gambar fisik dan ubah ke Base64 agar bisa dikirim via Socket
-                                                        const imgBuffer = fs.readFileSync(r.image_url);
-                                                        gambarBase64 = imgBuffer.toString('base64');
-                                                    } catch (err) {
-                                                        console.error("Gagal membaca file gambar:", err);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                }
+            }
+        }
+    }
 
                     // --- LLM REASONING ---
                     console.log("🧠 Gemini reasoning...");
@@ -285,23 +283,22 @@ Balas JSON:
                     const audioData = responseTTS.candidates[0].content.parts[0].inlineData.data;
 
                     interaction.client.io.emit('ai_speak', {
-                        teks: hasil.teks,
-                        emosi: hasil.emosi,
-                        audioData: audioData,
-                        gambarBase64: gambarBase64 // <-- Data gambar dikirim ke web!
-                    });
+                    teks: hasil.teks,
+                    emosi: hasil.emosi,
+                    audioData: audioData,
+                    gambarBase64: gambarBase64 
+                });
 
-                } catch (error) {
-                    console.error("❌ ERROR KESELURUHAN:", error.message || error);
-                    interaction.client.io.emit('ai_speak', {
-                        teks: "*[Maaf, koneksiku ke otak pusat terputus...]*",
-                        emosi: "sad"
-                    });
-                } finally {
-                    // KUNCI PERBAIKAN: Menjamin bendera ini selalu disetel ulang
-                    isProcessing = false;
-                    console.log("✅ Pemrosesan selesai. AI siap menerima audio baru.");
-                }
+            } catch (error) {
+                console.error("❌ ERROR KESELURUHAN:", error.message || error);
+                interaction.client.io.emit('ai_speak', {
+                    teks: "*[Maaf, koneksiku ke otak pusat terputus...]*",
+                    emosi: "sad"
+                });
+            } finally {
+                isProcessing = false;
+                console.log("✅ Pemrosesan selesai. AI siap menerima audio baru.");
+            }
             });
         });
     }
