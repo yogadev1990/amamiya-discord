@@ -88,21 +88,20 @@ module.exports = {
         // 2. KONEKSI GEMINI LIVE API (WEBSOCKET)
         let session;
         let currentAudioChunks = []; // Penampung potongan suara dari AI
-        let currentTextChunks = [];  // Penampung transkrip subtitle untuk frontend
+        let currentTextChunks = [];  // Penampung transkrip teks
         let activeImages = []; // Penampung gambar referensi
 
         try {
             session = await ai.live.connect({
+                // PERBAIKAN 1: Menggunakan model persis seperti di dokumentasi
                 model: 'models/gemini-2.5-flash-native-audio-preview-12-2025', 
                 config: {
-                    // PERBAIKAN MUTLAK 1: System Instruction WAJIB berbentuk Object (bukan String)
                     systemInstruction: {
                         parts: [{ text: "Kamu adalah Amamiya, VTuber asisten medis di Fakultas Kedokteran Gigi. Jawab dengan cepat, cerdas, dan imut." }]
                     },
-                    
-                    // PERBAIKAN MUTLAK 2: Sederhanakan modality (teks otomatis mengikuti)
-                    responseModalities: ["AUDIO"], 
-                    
+                    responseModalities: [Modality.AUDIO],
+                    // PERBAIKAN 2: Mengaktifkan transkripsi teks sesuai dokumentasi agar web tetap dapat teks
+                    outputAudioTranscription: {}, 
                     speechConfig: {
                         voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Despina' } }
                     }
@@ -112,38 +111,36 @@ module.exports = {
                         console.log("✅ WebSocket Gemini Live Terhubung!");
                     },
                     onmessage: async (message) => {
-                        // A. TANGKAP AUDIO & TEKS
-                        if (message.serverContent?.modelTurn?.parts) {
-                            for (const part of message.serverContent.modelTurn.parts) {
-                                // Tangkap Audio
+                        const content = message.serverContent;
+                        if (!content) return;
+
+                        // A. TANGKAP AUDIO
+                        if (content.modelTurn?.parts) {
+                            for (const part of content.modelTurn.parts) {
                                 if (part.inlineData && part.inlineData.data) {
                                     currentAudioChunks.push(Buffer.from(part.inlineData.data, 'base64'));
-                                }
-                                // Tangkap Teks Subtitle
-                                if (part.text) {
-                                    currentTextChunks.push(part.text);
                                 }
                             }
                         }
 
-                        // B. TANGKAP PANGGILAN ALAT (Sementara dinonaktifkan dari config)
-                        if (message.toolCall) {
-                            // Logika Milvus
+                        // B. TANGKAP TRANSKRIP TEKS (Sesuai Dokumentasi)
+                        if (content.outputTranscription) {
+                            currentTextChunks.push(content.outputTranscription.text);
                         }
 
-                        // C. DETEKSI GILIRAN BICARA SELESAI (TURN COMPLETE)
-                        if (message.serverContent?.turnComplete) {
+                        // C. DETEKSI GILIRAN BICARA SELESAI
+                        if (content.turnComplete) {
                             if (currentAudioChunks.length > 0) {
                                 console.log("🔊 Mengirim audio respons utuh ke VTuber UI");
                                 const fullPcmBuffer = Buffer.concat(currentAudioChunks);
-                                const fullText = currentTextChunks.join("");
+                                const fullText = currentTextChunks.join(" ");
                                 
                                 const wavHeader = getWavHeader(fullPcmBuffer.length, 24000);
                                 const wavBuffer = Buffer.concat([wavHeader, fullPcmBuffer]);
                                 
                                 interaction.client.io.emit('ai_speak', {
                                     audioData: wavBuffer.toString('base64'),
-                                    teks: fullText.trim() !== "" ? fullText : undefined,
+                                    teks: fullText.trim() !== "" ? fullText.trim() : "*[Bicara...]*",
                                     emosi: "happy", 
                                     gambarBase64: activeImages.length > 0 ? activeImages[0] : null
                                 });
@@ -168,11 +165,10 @@ module.exports = {
             if (userId !== interaction.user.id) return;
             console.log(`🎤 ${interaction.user.username} mulai bicara (Streaming ke Gemini...)`);
 
-            // Memastikan bot mendeteksi saat pengguna berhenti bicara
             const audioStream = receiver.subscribe(userId, {
                 end: {
                     behavior: EndBehaviorType.AfterSilence,
-                    duration: 1500 // Tunggu 1.5 detik keheningan sebelum memotong stream
+                    duration: 1000 // Tunggu 1 detik keheningan
                 }
             });
             
@@ -180,22 +176,22 @@ module.exports = {
             const pcmStream = audioStream.pipe(decoder);
 
             pcmStream.on('data', chunk => {
-                if (session) {
-                    // PERBAIKAN MUTLAK 3: Gunakan fungsi spesifik dari SDK untuk mengalirkan audio
-                    session.sendRealtimeInput([{
-                        mimeType: "audio/pcm;rate=16000",
-                        data: chunk.toString("base64")
-                    }]);
+                // PERBAIKAN 3: Format payload input persis sesuai panduan resmi
+                if (session && chunk.length > 0) {
+                    session.sendRealtimeInput({
+                        audio: {
+                            data: chunk.toString("base64"),
+                            mimeType: "audio/pcm;rate=16000"
+                        }
+                    });
                 }
             });
 
-            // PERBAIKAN MUTLAK 4: Sinyal akhir aliran audio (End of Turn) via sendClientContent
             pcmStream.on('end', () => {
-                console.log("🛑 Berhenti bicara. Mengirim sinyal Turn Complete ke Gemini...");
+                console.log("🛑 Berhenti bicara. Mengirim sinyal audioStreamEnd...");
+                // PERBAIKAN 4: Mengirim sinyal end stream resmi dari dokumentasi
                 if (session) {
-                    session.sendClientContent({
-                        turnComplete: true
-                    });
+                    session.sendRealtimeInput({ audioStreamEnd: true });
                 }
             });
         });
