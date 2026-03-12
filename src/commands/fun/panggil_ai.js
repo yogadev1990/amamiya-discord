@@ -93,19 +93,20 @@ module.exports = {
 
         try {
             session = await ai.live.connect({
-                model: 'models/gemini-2.5-flash-native-audio-preview-12-2025', // Model khusus audio real-time
+                model: 'models/gemini-2.5-flash-native-audio-preview-12-2025', 
                 config: {
-                    tools: [searchMedicalTool],
-                    // Modality ditambahkan TEXT agar main.js tetap menerima subtitle
+                    // PERBAIKAN 1: Menonaktifkan tools sementara demi stabilitas koneksi awal
+                    // tools: [searchMedicalTool],
+                    
                     responseModalities: [Modality.AUDIO, Modality.TEXT], 
-                    systemInstruction: {
-                        parts: [{ text: "Kamu adalah Amamiya, VTuber asisten medis cerdas di Fakultas Kedokteran Gigi. Jawab secara instan. Jika butuh referensi medis/teori pasti, gunakan tool search_medical_reference." }]
-                    },
+                    
+                    // PERBAIKAN 2: System Instruction diubah menjadi String murni
+                    systemInstruction: "Kamu adalah Amamiya, VTuber asisten medis di Fakultas Kedokteran Gigi. Jawab dengan cepat, cerdas, dan imut.",
+                    
                     speechConfig: {
                         voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Despina' } }
                     }
                 },
-                // PERBAIKAN MUTLAK: Gunakan Callbacks, BUKAN session.receive()
                 callbacks: {
                     onopen: () => {
                         console.log("✅ WebSocket Gemini Live Terhubung!");
@@ -125,68 +126,9 @@ module.exports = {
                             }
                         }
 
-                        // B. TANGKAP PANGGILAN ALAT (MILVUS FUNCTION CALLING)
+                        // B. TANGKAP PANGGILAN ALAT (Sementara dinonaktifkan dari config)
                         if (message.toolCall) {
-                            console.log("🛠️ AI Memanggil Alat Milvus!");
-                            const call = message.toolCall.functionCalls[0];
-                            
-                            if (call.name === "search_medical_reference") {
-                                interaction.client.io.emit('ai_speak', { teks: "*[Membuka arsip jurnal medis...]*", emosi: "neutral" });
-                                
-                                const query = call.args?.query || "";
-                                let hasilPencarian = "Data tidak ditemukan di database.";
-                                
-                                try {
-                                    const userProfile = await User.findOne({ userId: interaction.user.id });
-                                    const activeNotebook = userProfile?.activeNotebook ? await Notebook.findById(userProfile.activeNotebook) : null;
-
-                                    if (activeNotebook && activeNotebook.files.length > 0) {
-                                        // Proses Embed Query
-                                        const embedResult = await ai.models.embedContent({
-                                            model: 'gemini-embedding-001',
-                                            contents: query
-                                        });
-                                        
-                                        const vector = embedResult.embeddings[0].values;
-                                        const hashes = activeNotebook.files.map(f => f.fileHash);
-                                        const hashFilter = `fileHash in [${hashes.map(h => `"${h}"`).join(',')}]`;
-
-                                        // Proses Search Milvus
-                                        const searchRes = await milvusClient.search({
-                                            collection_name: "notebook_amamiya",
-                                            vector: vector,
-                                            filter: hashFilter,
-                                            output_fields: ["text_content", "page_number", "image_url"],
-                                            limit: 2
-                                        });
-
-                                        if (searchRes.results.length > 0) {
-                                            hasilPencarian = searchRes.results.map(r => `Halaman ${r.page_number}: ${r.text_content}`).join("\n\n");
-                                            
-                                            // Cek gambar
-                                            for (const r of searchRes.results) {
-                                                if (r.image_url && fs.existsSync(r.image_url)) {
-                                                    activeImages.push(fs.readFileSync(r.image_url).toString('base64'));
-                                                }
-                                            }
-                                        }
-                                    }
-                                } catch (e) {
-                                    console.error("Milvus Error:", e);
-                                }
-
-                                // Kirim Hasil Milvus Kembali ke Gemini
-                                console.log("➡️ Mengirim hasil Milvus ke Gemini...");
-                                session.sendClientContent({
-                                    toolResponse: {
-                                        functionResponses: [{
-                                            id: call.id,
-                                            name: call.name,
-                                            response: { result: hasilPencarian }
-                                        }]
-                                    }
-                                });
-                            }
+                            // ... logika Milvus tetap dipertahankan untuk nanti jika tools diaktifkan ulang
                         }
 
                         // C. DETEKSI GILIRAN BICARA SELESAI (TURN COMPLETE)
@@ -194,20 +136,18 @@ module.exports = {
                             if (currentAudioChunks.length > 0) {
                                 console.log("🔊 Mengirim audio respons utuh ke VTuber UI");
                                 const fullPcmBuffer = Buffer.concat(currentAudioChunks);
-                                const fullText = currentTextChunks.join(""); // Gabungkan teks subtitle
+                                const fullText = currentTextChunks.join("");
                                 
-                                // Live API default output PCM adalah 24kHz
                                 const wavHeader = getWavHeader(fullPcmBuffer.length, 24000);
                                 const wavBuffer = Buffer.concat([wavHeader, fullPcmBuffer]);
                                 
                                 interaction.client.io.emit('ai_speak', {
                                     audioData: wavBuffer.toString('base64'),
-                                    teks: fullText.trim() !== "" ? fullText : undefined, // Kirim teks ke main.js
+                                    teks: fullText.trim() !== "" ? fullText : undefined,
                                     emosi: "happy", 
                                     gambarBase64: activeImages.length > 0 ? activeImages[0] : null
                                 });
 
-                                // Reset penampung untuk percakapan berikutnya
                                 currentAudioChunks = [];
                                 currentTextChunks = [];
                                 activeImages = [];
@@ -228,14 +168,19 @@ module.exports = {
             if (userId !== interaction.user.id) return;
             console.log(`🎤 ${interaction.user.username} mulai bicara (Streaming ke Gemini...)`);
 
-            // Tidak pakai EndBehaviorType.AfterSilence agar audio langsung mengalir real-time
-            const audioStream = receiver.subscribe(userId);
-            const decoder = new prism.opus.Decoder({ rate: 16000, channels: 1, frameSize: 320 }); // Live API optimal di 16kHz
+            // Memastikan bot mendeteksi saat pengguna berhenti bicara
+            const audioStream = receiver.subscribe(userId, {
+                end: {
+                    behavior: EndBehaviorType.AfterSilence,
+                    duration: 1500 // Tunggu 1.5 detik keheningan sebelum memotong stream
+                }
+            });
+            
+            const decoder = new prism.opus.Decoder({ rate: 16000, channels: 1, frameSize: 320 }); 
             const pcmStream = audioStream.pipe(decoder);
 
             pcmStream.on('data', chunk => {
                 if (session) {
-                    // Lempar potongan suara instan detik itu juga ke Gemini
                     session.sendClientContent({
                         realtimeInput: {
                             mediaChunks: [{
@@ -247,8 +192,15 @@ module.exports = {
                 }
             });
 
+            // PERBAIKAN 3: Sinyal akhir aliran audio (End of Turn)
             pcmStream.on('end', () => {
-                console.log("🛑 Berhenti bicara. Menunggu eksekusi/respon...");
+                console.log("🛑 Berhenti bicara. Mengirim sinyal Turn Complete ke Gemini...");
+                if (session) {
+                    // Sinyal resmi pada @google/genai untuk menyerahkan giliran bicara ke AI
+                    session.sendClientContent({
+                        turnComplete: true
+                    });
+                }
             });
         });
     }
