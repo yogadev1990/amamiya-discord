@@ -95,13 +95,13 @@ module.exports = {
             session = await ai.live.connect({
                 model: 'models/gemini-2.5-flash-native-audio-preview-12-2025', 
                 config: {
-                    // PERBAIKAN 1: Menonaktifkan tools sementara demi stabilitas koneksi awal
-                    // tools: [searchMedicalTool],
+                    // PERBAIKAN MUTLAK 1: System Instruction WAJIB berbentuk Object (bukan String)
+                    systemInstruction: {
+                        parts: [{ text: "Kamu adalah Amamiya, VTuber asisten medis di Fakultas Kedokteran Gigi. Jawab dengan cepat, cerdas, dan imut." }]
+                    },
                     
-                    responseModalities: [Modality.AUDIO, Modality.TEXT], 
-                    
-                    // PERBAIKAN 2: System Instruction diubah menjadi String murni
-                    systemInstruction: "Kamu adalah Amamiya, VTuber asisten medis di Fakultas Kedokteran Gigi. Jawab dengan cepat, cerdas, dan imut.",
+                    // PERBAIKAN MUTLAK 2: Sederhanakan modality (teks otomatis mengikuti)
+                    responseModalities: ["AUDIO"], 
                     
                     speechConfig: {
                         voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Despina' } }
@@ -128,7 +128,7 @@ module.exports = {
 
                         // B. TANGKAP PANGGILAN ALAT (Sementara dinonaktifkan dari config)
                         if (message.toolCall) {
-                            // ... logika Milvus tetap dipertahankan untuk nanti jika tools diaktifkan ulang
+                            // Logika Milvus
                         }
 
                         // C. DETEKSI GILIRAN BICARA SELESAI (TURN COMPLETE)
@@ -181,7 +181,8 @@ module.exports = {
 
             pcmStream.on('data', chunk => {
                 if (session) {
-                    session.sendClientContent({
+                    // PERBAIKAN MUTLAK 3: Gunakan session.send() murni untuk realtimeInput
+                    session.send({
                         realtimeInput: {
                             mediaChunks: [{
                                 mimeType: "audio/pcm;rate=16000",
@@ -192,13 +193,14 @@ module.exports = {
                 }
             });
 
-            // PERBAIKAN 3: Sinyal akhir aliran audio (End of Turn)
+            // PERBAIKAN MUTLAK 4: Sinyal akhir aliran audio (End of Turn) via ClientContent
             pcmStream.on('end', () => {
                 console.log("🛑 Berhenti bicara. Mengirim sinyal Turn Complete ke Gemini...");
                 if (session) {
-                    // Sinyal resmi pada @google/genai untuk menyerahkan giliran bicara ke AI
-                    session.sendClientContent({
-                        turnComplete: true
+                    session.send({
+                        clientContent: {
+                            turnComplete: true
+                        }
                     });
                 }
             });
