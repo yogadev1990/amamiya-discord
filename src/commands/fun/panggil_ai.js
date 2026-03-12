@@ -71,7 +71,7 @@ let activeImages=[];
 
 session = await ai.live.connect({
 
-model:'gemini-live-2.5-flash-preview-native-audio-09-2025',
+model:'models/gemini-2.5-flash-native-audio-preview-12-2025',
 
 config:{
 
