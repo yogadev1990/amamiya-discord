@@ -181,26 +181,20 @@ module.exports = {
 
             pcmStream.on('data', chunk => {
                 if (session) {
-                    // PERBAIKAN MUTLAK 3: Gunakan session.send() murni untuk realtimeInput
-                    session.send({
-                        realtimeInput: {
-                            mediaChunks: [{
-                                mimeType: "audio/pcm;rate=16000",
-                                data: chunk.toString("base64")
-                            }]
-                        }
-                    });
+                    // PERBAIKAN MUTLAK 3: Gunakan fungsi spesifik dari SDK untuk mengalirkan audio
+                    session.sendRealtimeInput([{
+                        mimeType: "audio/pcm;rate=16000",
+                        data: chunk.toString("base64")
+                    }]);
                 }
             });
 
-            // PERBAIKAN MUTLAK 4: Sinyal akhir aliran audio (End of Turn) via ClientContent
+            // PERBAIKAN MUTLAK 4: Sinyal akhir aliran audio (End of Turn) via sendClientContent
             pcmStream.on('end', () => {
                 console.log("🛑 Berhenti bicara. Mengirim sinyal Turn Complete ke Gemini...");
                 if (session) {
-                    session.send({
-                        clientContent: {
-                            turnComplete: true
-                        }
+                    session.sendClientContent({
+                        turnComplete: true
                     });
                 }
             });
