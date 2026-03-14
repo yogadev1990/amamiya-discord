@@ -333,4 +333,21 @@ export class AvatarManager {
             this.vrm.expressionManager.setValue('blink', this.blinkProgress);
         }
     }
+
+    // FUNGSI INI DIKEMBALIKAN: Digunakan oleh main.js untuk mengatur emosi dari backend
+    setEmotion(name) {
+        if (!this.vrm) return;
+        
+        // Reset semua emosi dasar ke 0 terlebih dahulu agar tidak bertabrakan
+        ['happy', 'sad', 'angry', 'surprised', 'neutral'].forEach(e => 
+            this.vrm.expressionManager.setValue(e, 0)
+        );
+        
+        // Aktifkan emosi yang diminta
+        if (name) {
+            this.vrm.expressionManager.setValue(name.toLowerCase(), 1.0);
+        } else {
+            this.vrm.expressionManager.setValue('neutral', 1.0);
+        }
+    }
 }

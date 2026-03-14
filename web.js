@@ -15,27 +15,21 @@ const io = new Server(server, {
     }
 });
 
-// Serve file statis
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/materi', express.static(path.join(__dirname, 'materi')));
+// Folder publik untuk menaruh build frontend ChatVRM/Three.js
+app.use(express.static('public'));
 
-// Bungkus fungsi jalankan server agar bisa dipanggil dari index.js
-function startWebServer() {
-    const PORT = process.env.PORT || 3000;
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-    if (!GEMINI_API_KEY) {
-        console.error("❌ GAGAL: GEMINI_API_KEY tidak ditemukan di file .env");
-        process.exit(1);
-    }
-
-    // Inisialisasi logika Socket.IO
-    setupSocketHandlers(io, GEMINI_API_KEY);
-
-    server.listen(PORT, () => {
-        console.log(`🌐 Web Server Waguri berjalan di http://localhost:${PORT}`);
+io.on('connection', (socket) => {
+    console.log(`🌐 Klien Web Avatar terhubung: ${socket.id}`);
+    
+    socket.on('disconnect', () => {
+        console.log(`❌ Klien Web Avatar terputus: ${socket.id}`);
     });
-}
+});
 
-// Ekspor instance io dan fungsinya
-module.exports = { io, startWebServer };
+// Jalankan server
+server.listen(3000, () => {
+    console.log('🚀 Web Server & Socket.IO berjalan di port 3000');
+});
+
+// Ekspor io agar bisa ditarik oleh sistem command bot Discord
+module.exports = { io };
