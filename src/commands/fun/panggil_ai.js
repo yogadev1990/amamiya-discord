@@ -13,7 +13,7 @@ module.exports = {
 
         // 2. Tentukan URL Web Anda (Ubah localhost jika sudah di-hosting)
         // Kita selipkan parameter agar web.js nanti tahu siapa yang sedang login
-        const webUrl = `http://localhost:3000/?session=${sessionId}&user=${userId}`;
+        const webUrl = `https://waguri.revanetic.my.id/?session=${sessionId}&user=${userId}`;
 
         // 3. Buat Tampilan Embed yang cantik
         const embed = new EmbedBuilder()
