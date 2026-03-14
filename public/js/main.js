@@ -64,10 +64,30 @@ const socketManager = new SocketManager({
 
     onText: (text) => {
         clearTimeout(hideUITimeout); 
-        kalimatAktif += text;
+        
+        // 1. HAPUS MARKDOWN: Buang tanda bintang (**), garis bawah, hashtag, dll.
+        let cleanText = text.replace(/[*_~`#]/g, '');
+        kalimatAktif += cleanText;
+
+        // 2. BATASI PANJANG TEKS (Mencegah Gunung Teks)
+        // Jika melebihi ~180 karakter (sekitar 3-4 baris), kita potong teks lamanya
+        if (kalimatAktif.length > 180) {
+            // Kita cari titik (.) terdekat agar kalimat terpotong rapi, bukan di tengah kata
+            let cutIndex = kalimatAktif.indexOf('.', 50); 
+            
+            if (cutIndex !== -1) {
+                // Potong dari titik tersebut ke akhir
+                kalimatAktif = kalimatAktif.substring(cutIndex + 1).trim();
+            } else {
+                // Jika Gemini tidak memakai titik, potong paksa 100 karakter terakhir
+                kalimatAktif = kalimatAktif.substring(kalimatAktif.length - 100).trim();
+            }
+        }
+
         teksEl.innerText = `"${kalimatAktif}"`;
         uiLayer.style.display = 'block';
 
+        // --- SISTEM DETEKSI EMOSI BERDASARKAN KATA KUNCI ---
         const lowerText = kalimatAktif.toLowerCase();
         const time = clock.elapsedTime;
 

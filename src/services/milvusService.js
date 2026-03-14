@@ -1,18 +1,14 @@
-// --- 1. UBAH IMPORT MENJADI REQUIRE ---
 const { GoogleGenAI } = require('@google/genai');
 const { MilvusClient } = require('@zilliz/milvus2-sdk-node');
+const fs = require('fs'); // <--- TAMBAHKAN INI UNTUK MEMBACA FILE
 require('dotenv').config();
 
-// Inisialisasi AI untuk membuat Vektor/Embedding
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-// Inisialisasi Koneksi Database Milvus
 const milvusClient = new MilvusClient({
     address: `${process.env.MILVUS_HOST}:${process.env.MILVUS_PORT}`,
     ssl: false
 });
 
-// --- 2. HAPUS 'export' DARI DEKLARASI FUNGSI ---
 async function searchMateriKuliah(queryText) {
     try {
         console.log(`[Milvus] Memproses kueri: "${queryText}"`);
@@ -24,7 +20,6 @@ async function searchMateriKuliah(queryText) {
 
         const vector = embedResult.embeddings[0].values;
 
-        // Cari kedekatan vektor di Milvus
         const searchRes = await milvusClient.search({
             collection_name: "notebook_amamiya",
             vector: vector,
@@ -32,43 +27,38 @@ async function searchMateriKuliah(queryText) {
             limit: 3 
         });
 
-        // 3. PERBAIKAN FATAL: Kembalikan Object, bukan String!
         if (searchRes.results.length === 0) {
-            console.log("[Milvus] Tidak ada data yang relevan ditemukan.");
-            return { 
-                text: "Sistem tidak menemukan literatur yang relevan di dalam database.", 
-                image: null 
-            };
+            return { text: "Sistem tidak menemukan literatur yang relevan.", image: null };
         }
 
         let konteksGabungan = "Berdasarkan literatur dari database:\n";
-        let gambarDitemukan = null; // Variabel penyimpan gambar
+        let gambarDitemukan = null; 
 
         searchRes.results.forEach(r => {
             konteksGabungan += `[Hal ${r.page_number}]: ${r.text_content}\n`;
             
-            // Tangkap URL gambar pertama yang tersedia dari hasil pencarian
-            if (r.image_url && !gambarDitemukan) {
-                gambarDitemukan = r.image_url;
+            // --- LOGIKA BASE64 DARI KODE LAMA ANDA ---
+            if (r.image_url && !gambarDitemukan && fs.existsSync(r.image_url)) {
+                try {
+                    const imgBuffer = fs.readFileSync(r.image_url);
+                    // Format langsung menjadi Data URI agar Three.js bisa langsung membacanya
+                    gambarDitemukan = `data:image/png;base64,${imgBuffer.toString('base64')}`;
+                } catch (err) {
+                    console.error("Gagal membaca file gambar dari storage:", err);
+                }
             }
         });
 
-        console.log(`[Milvus] Pencarian selesai. Gambar ditemukan: ${gambarDitemukan ? 'Ya' : 'Tidak'}`);
+        console.log(`[Milvus] Pencarian selesai. Gambar dikirim: ${gambarDitemukan ? 'Ya (Base64)' : 'Tidak'}`);
         
-        // Kembalikan sebagai object
         return { 
             text: konteksGabungan, 
             image: gambarDitemukan 
         };
     } catch (error) {
         console.error("❌ [Milvus] ERROR:", error);
-        // PERBAIKAN FATAL: Kembalikan Object saat Error!
-        return { 
-            text: "Terjadi kesalahan internal saat mencoba mengakses database materi.", 
-            image: null 
-        };
+        return { text: "Terjadi kesalahan internal pada database.", image: null };
     }
 }
 
-// --- 4. WAJIB: EKSPOR SEBAGAI MODULE.EXPORTS ---
 module.exports = { searchMateriKuliah };
