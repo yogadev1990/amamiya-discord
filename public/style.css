@@ -1,0 +1,30 @@
+body { margin: 0; overflow: hidden; background-color: #1a1a2e; font-family: sans-serif; color: white; }
+#canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; }
+
+#ui-layer {
+    position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7); padding: 20px; border-radius: 12px;
+    text-align: center; width: 80%; max-width: 600px;
+    display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+#teks-ai { font-size: 1.1rem; line-height: 1.5; margin: 0; }
+
+#start-screen {
+    position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(10, 10, 20, 0.9); display: flex; flex-direction: column;
+    justify-content: center; align-items: center; z-index: 100;
+}
+
+button {
+    padding: 15px 30px; font-size: 1.2rem; cursor: pointer; border: none;
+    border-radius: 8px; background: #4a90e2; color: white; font-weight: bold;
+    transition: background 0.2s;
+}
+button:hover { background: #357abd; }
+
+#status {
+    position: absolute; top: 20px; left: 20px; font-weight: bold;
+    background: rgba(0,0,0,0.5); padding: 10px 15px; border-radius: 8px; display: none;
+}

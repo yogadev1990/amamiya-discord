@@ -3,60 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amamiya 3D Avatar - Modular</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #1e1e2e; font-family: sans-serif; }
-        #canvas-container { width: 100vw; height: 100vh; display: block; }
-        
-        #ui-layer { 
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); 
-            text-align: center; background: rgba(17, 17, 27, 0.8); color: #cdd6f4; 
-            padding: 15px 30px; border-radius: 15px; width: 80%; max-width: 700px; 
-            display: none; font-size: 1.2rem; line-height: 1.5; 
-            border: 2px solid #cba6f7; box-shadow: 0 4px 15px rgba(203, 166, 247, 0.3); 
-        }
+    <title>My Bini Waguri</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <script src="/socket.io/socket.io.js"></script>
 
-        #status { 
-            position: absolute; top: 15px; left: 15px; background: rgba(17, 17, 27, 0.8); 
-            color: #a6e3a1; padding: 8px 15px; border-radius: 8px; font-weight: bold; 
-            border: 1px solid #a6e3a1; 
+ <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+                "@pixiv/three-vrm": "https://unpkg.com/@pixiv/three-vrm@2.1.2/lib/three-vrm.module.js",
+                "@pixiv/three-vrm-animation": "https://unpkg.com/@pixiv/three-vrm-animation@2.1.2/lib/three-vrm-animation.module.js"
+            }
         }
-        
-        #start-screen { 
-            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; 
-            background: rgba(30, 30, 46, 0.95); color: #cba6f7; display: flex; 
-            flex-direction: column; justify-content: center; align-items: center; 
-            z-index: 100; cursor: pointer; 
-        }
-        #start-screen h1 { font-size: 2.5rem; margin-bottom: 10px; }
-        #start-screen p { font-size: 1.2rem; color: #a6adc8; }
-    </style>
-
-<script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.154.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.154.0/examples/jsm/",
-            "@pixiv/three-vrm": "https://unpkg.com/@pixiv/three-vrm@3.5.0/lib/three-vrm.module.js",
-            "@pixiv/three-vrm-animation": "https://unpkg.com/@pixiv/three-vrm-animation@3.5.0/lib/three-vrm-animation.module.js"
-        }
-    }
-</script>
+    </script>
 </head>
 <body>
+    <div id="canvas-container"></div>
+    <div id="status">🔴 Menghubungkan ke Server...</div>
+    <div id="ui-layer"><p id="teks-ai">...</p></div>
 
     <div id="start-screen">
-        <h1>🎙️ Amamiya AI VTuber</h1>
-        <p>Klik layar untuk membangunkan avatar</p>
+        <h2 style="margin-bottom: 20px;">My Bini</h2>
+        <button id="btn-start">Mulai & Izinkan Mikrofon</button>
     </div>
 
-    <div id="status" style="display: none;">🔴 Menghubungkan...</div>
-    
-    <div id="ui-layer">
-        <h3 id="teks-ai" style="margin: 0;"></h3>
-    </div>
-
-    <script type="module" src="./src/main.js"></script>
-
+    <script type="module" src="./js/main.js"></script>
 </body>
 </html>
