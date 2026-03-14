@@ -39,7 +39,7 @@ export class AvatarManager {
             VRMUtils.removeUnnecessaryJoints(gltf.scene);
             this.scene.add(this.vrm.scene);
             this.vrm.scene.rotation.y = Math.PI;
-            
+
             this.createPresentationBoard(); // Membuat papan tulis di sebelah Waguri
             this._extractBones();
 
@@ -120,6 +120,15 @@ export class AvatarManager {
         });
     }
 
+    clearImageOnBoard() {
+        if (!this.boardMesh) return;
+        // Hapus tekstur gambar
+        this.boardMesh.material.map = null;
+        // Kembalikan warna papan ke abu-abu gelap
+        this.boardMesh.material.color.setHex(0x222222); 
+        this.boardMesh.material.needsUpdate = true;
+    }
+    
     _extractBones() {
         const h = this.vrm.humanoid;
         const getChain = (side, name) => [

@@ -127,15 +127,14 @@ class GeminiClient {
                         this.onMessage({ type: 'status', message: `🔍 Waguri sedang mencari materi: "${query}"...` });
                         
                         try {
-                            // Eksekusi Milvus (Sekarang mereturn object { text, image })
+                            // Eksekusi Milvus
                             const searchData = await searchMateriKuliah(query);
                             
-                            // JIKA ADA GAMBAR: Langsung tembakkan ke Frontend/Browser
-                            if (searchData.image) {
-                                this.onMessage({ type: 'show_image', url: searchData.image });
-                            }
+                            // PERUBAHAN: Selalu kirim event show_image. 
+                            // Jika gambar ada, kirim base64-nya. Jika tidak ada, kirim null untuk mereset papan.
+                            this.onMessage({ type: 'show_image', url: searchData.image || null });
                             
-                            // JIKA ADA TEKS: Kirimkan ke Gemini untuk diucapkan
+                            // Kirimkan teks ke Gemini untuk diucapkan
                             functionResponsesArray.push({
                                 id: call.id,
                                 name: call.name,

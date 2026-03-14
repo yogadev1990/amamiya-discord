@@ -58,36 +58,37 @@ const socketManager = new SocketManager({
     },
     
     onImage: (url) => {
-        console.log("Menerima gambar dari server:", url);
-        avatarManager.showImageOnBoard(url);
+        if (url) {
+            console.log("Menerima gambar baru untuk topik ini.");
+            avatarManager.showImageOnBoard(url);
+        } else {
+            console.log("Topik ini tidak memiliki gambar. Mereset papan.");
+            avatarManager.clearImageOnBoard(); // Hapus gambar lama
+        }
     },
 
     onText: (text) => {
         clearTimeout(hideUITimeout); 
         
-        // 1. HAPUS MARKDOWN: Buang tanda bintang (**), garis bawah, hashtag, dll.
+        // Bersihkan simbol markdown
         let cleanText = text.replace(/[*_~`#]/g, '');
         kalimatAktif += cleanText;
 
-        // 2. BATASI PANJANG TEKS (Mencegah Gunung Teks)
-        // Jika melebihi ~180 karakter (sekitar 3-4 baris), kita potong teks lamanya
-        if (kalimatAktif.length > 180) {
-            // Kita cari titik (.) terdekat agar kalimat terpotong rapi, bukan di tengah kata
-            let cutIndex = kalimatAktif.indexOf('.', 50); 
-            
-            if (cutIndex !== -1) {
-                // Potong dari titik tersebut ke akhir
-                kalimatAktif = kalimatAktif.substring(cutIndex + 1).trim();
-            } else {
-                // Jika Gemini tidak memakai titik, potong paksa 100 karakter terakhir
-                kalimatAktif = kalimatAktif.substring(kalimatAktif.length - 100).trim();
-            }
-        }
-
+        // JANGAN DIPOTONG PAKSA LAGI. Biarkan teks menumpuk selama dia bicara.
         teksEl.innerText = `"${kalimatAktif}"`;
         uiLayer.style.display = 'block';
 
-        // --- SISTEM DETEKSI EMOSI BERDASARKAN KATA KUNCI ---
+        // --- SISTEM AUTO-SCROLL CSS (Maks 4 Baris) ---
+        // Kita suntikkan gaya CSS langsung ke elemen teks agar otomatis scroll
+        teksEl.style.maxHeight = "100px"; // Kira-kira cukup untuk 3-4 baris
+        teksEl.style.overflowY = "auto";
+        teksEl.style.scrollBehavior = "smooth";
+        
+        // Paksa scrollbar selalu berada di posisi paling bawah
+        teksEl.scrollTop = teksEl.scrollHeight;
+        // ----------------------------------------------
+
+        // Sistem deteksi emosi (tetap sama seperti sebelumnya)
         const lowerText = kalimatAktif.toLowerCase();
         const time = clock.elapsedTime;
 
