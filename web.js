@@ -2,8 +2,7 @@ const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-// Asumsi: Anda juga sudah mengubah file socketHandler.js menggunakan module.exports
-const { setupSocketHandlers } = require('./src/sockets/socketHandler.js'); 
+const { setupSocketHandlers } = require('./src/sockets/socketHandler'); 
 
 const app = express();
 const server = createServer(app);
@@ -15,21 +14,24 @@ const io = new Server(server, {
     }
 });
 
-// Folder publik untuk menaruh build frontend ChatVRM/Three.js
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/materi', express.static(path.join(__dirname, 'materi')));
 
-io.on('connection', (socket) => {
-    console.log(`🌐 Klien Web Avatar terhubung: ${socket.id}`);
-    
-    socket.on('disconnect', () => {
-        console.log(`❌ Klien Web Avatar terputus: ${socket.id}`);
+function startWebServer() {
+    const PORT = process.env.PORT || 3000;
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+    if (!GEMINI_API_KEY) {
+        console.error("❌ GAGAL: GEMINI_API_KEY tidak ditemukan di file .env");
+        process.exit(1);
+    }
+
+    // MEMANGGIL SOCKET HANDLER (Hanya satu baris ini saja!)
+    setupSocketHandlers(io, GEMINI_API_KEY);
+
+    server.listen(PORT, () => {
+        console.log(`🚀 Web Server & Socket.IO berjalan di port ${PORT}`);
     });
-});
+}
 
-// Jalankan server
-server.listen(3000, () => {
-    console.log('🚀 Web Server & Socket.IO berjalan di port 3000');
-});
-
-// Ekspor io agar bisa ditarik oleh sistem command bot Discord
-module.exports = { io };
+module.exports = { io, startWebServer };
