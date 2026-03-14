@@ -72,6 +72,7 @@ for (const file of eventFiles) {
             family: 4, // Paksa pakai IPv4 (IPv6 sering bermasalah)
         });
         console.log('🍃 Terhubung ke MongoDB Atlas!');
+        startWebServer();
     } catch (error) {
         console.error('❌ Gagal connect MongoDB:', error.message);
     }
