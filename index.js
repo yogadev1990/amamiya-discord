@@ -8,7 +8,7 @@ const mongoose = require('mongoose');
 // INTEGRASI WEB & SOCKET.IO
 // ==========================================
 // Asumsi: file web.js berada di folder yang sama dengan index.js
-const { io } = require('./web'); 
+const { io, startWebServer } = require('./web'); 
 
 // 1. Setup Client
 const client = new Client({
