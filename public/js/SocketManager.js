@@ -1,16 +1,22 @@
 export class SocketManager {
     constructor(callbacks) {
         this.socket = null;
-        this.callbacks = callbacks; // { onStatus, onText, onAudio }
+        this.callbacks = callbacks; // { onStatus, onText, onAudio, onImage }
         this.isConnected = false;
     }
 
-    connect() {
-        this.socket = io();
+    // TERIMA PARAMETER DARI main.js
+    connect(userId, sessionId) {
+        // HANYA PANGGIL io() SATU KALI DI SINI
+        this.socket = io({ 
+            query: { 
+                userId: userId,
+                sessionId: sessionId
+            } 
+        });
 
         this.socket.on('connect', () => {
             this.isConnected = true;
-            this.socket = io({ query: { userId: discordUserId } });
             if (this.callbacks.onStatus) this.callbacks.onStatus('🟠 Menghubungkan ke Gemini...');
         });
 

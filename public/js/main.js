@@ -4,6 +4,11 @@ import { AvatarManager } from './AvatarManager.js';
 import { AudioManager } from './AudioManager.js';
 import { SocketManager } from './SocketManager.js';
 
+// --- BACA URL PARAMETERS ---
+const urlParams = new URLSearchParams(window.location.search);
+const discordUserId = urlParams.get('user');
+const sessionId = urlParams.get('session');
+
 // --- SETUP UI ---
 const statusEl = document.getElementById('status');
 const uiLayer = document.getElementById('ui-layer');
@@ -36,20 +41,7 @@ const avatarManager = new AvatarManager(scene);
 
 let kalimatAktif = ""; 
 let hideUITimeout = null; 
-let isGeminiReady = false; // FLAG PENCEGAH ERROR 1008
-// --- BACA URL PARAMETERS ---
-const urlParams = new URLSearchParams(window.location.search);
-const discordUserId = urlParams.get('user');
-const sessionId = urlParams.get('session');
-
-// Modifikasi saat tombol mulai ditekan:
-btnStart.addEventListener('click', async () => {
-    startScreen.style.display = 'none';
-    await audioManager.startMicrophone(); 
-    
-    // Kirim ID User ke server saat menghubungkan socket
-    socketManager.connect(discordUserId, sessionId); 
-});
+let isGeminiReady = false; 
 
 const socketManager = new SocketManager({
     onStatus: (msg) => {
@@ -65,12 +57,10 @@ const socketManager = new SocketManager({
         }
     },
     
-    // --- TAMBAHKAN PINTU KHUSUS GAMBAR DI SINI ---
     onImage: (url) => {
         console.log("Menerima gambar dari server:", url);
         avatarManager.showImageOnBoard(url);
     },
-    // ---------------------------------------------
 
     onText: (text) => {
         clearTimeout(hideUITimeout); 
@@ -78,7 +68,6 @@ const socketManager = new SocketManager({
         teksEl.innerText = `"${kalimatAktif}"`;
         uiLayer.style.display = 'block';
 
-        // --- SISTEM DETEKSI EMOSI BERDASARKAN KATA KUNCI ---
         const lowerText = kalimatAktif.toLowerCase();
         const time = clock.elapsedTime;
 
@@ -104,7 +93,6 @@ const socketManager = new SocketManager({
 
 const audioManager = new AudioManager(
     (base64MicData) => {
-        // ATURAN MUTLAK: Jangan kirim audio jika Gemini belum siap
         if (isGeminiReady) {
             socketManager.sendAudio(base64MicData);
         }
@@ -137,10 +125,20 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// HANYA ADA SATU TOMBOL START DI SINI
 btnStart.addEventListener('click', async () => {
     startScreen.style.display = 'none';
+    
+    // Keamanan Mikrofon: Cegah error HTTP biasa
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("Mikrofon diblokir! Pastikan Anda mengakses web via HTTPS atau localhost.");
+        return;
+    }
+
     await audioManager.startMicrophone(); 
-    socketManager.connect();
+    
+    // Kirim ID ke SocketManager
+    socketManager.connect(discordUserId, sessionId); 
 });
 
 // --- JALANKAN ---
