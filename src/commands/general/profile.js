@@ -38,7 +38,7 @@ module.exports = {
             }
 
             // 2. Cek Role Angkatan (Visual Only)
-            const angkatanRole = targetMember?.roles.cache.find(r => r.name.startsWith('Angkatan'))?.name || 'Mahasiswa Umum';
+            const angkatanRole = targetMember?.roles.cache.find(r => r.name.startsWith('KG'))?.name || 'Mahasiswa Umum';
 
             // 3. Hitung Jam Belajar
             const totalMinutes = user.totalStudy || 0;
@@ -66,10 +66,10 @@ module.exports = {
             // 5. Buat Embed KTM yang Terstruktur
             const profileEmbed = new EmbedBuilder()
                 .setColor(targetMember?.displayHexColor || '#00BFFF') // Menggunakan warna role user atau biru default
-                .setTitle(`🎓 KTM: ${targetUser.username.toUpperCase()}`)
+                .setTitle(`🎓 Kartu Tanda Mahasiswa: ${targetUser.displayName.toUpperCase()}`)
                 .setThumbnail(thumbnailURL) 
                 .addFields(
-                    { name: '🏷️ Status Angkatan', value: angkatanRole, inline: true },
+                    { name: '🏷️ Status', value: angkatanRole, inline: true },
                     { name: '🎮 Integrasi Roblox', value: robloxField, inline: true },
                     { name: '\u200b', value: '\u200b', inline: true }, // Spacer rapi
                     
@@ -77,14 +77,14 @@ module.exports = {
                     { name: '✨ Experience (XP)', value: `${user.xp} pts`, inline: true },
                     { name: '💰 Saldo Gold', value: `${user.gold} Gold`, inline: true },
                     
-                    { name: '🎒 Kapasitas Inventory', value: `${user.inventory.length} Item Tersimpan`, inline: true },
+                    { name: '🎒 Inventory', value: `${user.inventory.length} Item Tersimpan`, inline: true },
                     { name: '📚 Total Jam Belajar', value: `${jam} Jam ${menit} Menit`, inline: true },
                     { name: '\u200b', value: '\u200b', inline: true }, // Spacer baris bawah
                     
-                    { name: '📅 Tanggal Registrasi Discord', value: `<t:${Math.floor(targetUser.createdTimestamp / 1000)}:R>`, inline: true }
+                    { name: '📅 Bergabung Sejak', value: `<t:${Math.floor(targetUser.createdTimestamp / 1000)}:R>`, inline: true }
                 )
                 .setFooter({ 
-                    text: `ID: ${targetUser.id} • Sistem Informasi KG`,
+                    text: `Amamiya AI • Command: /profile`,
                     iconURL: interaction.client.user.displayAvatarURL()
                 })
                 .setTimestamp();
