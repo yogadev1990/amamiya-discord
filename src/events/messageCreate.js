@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const User = require('../../models/User'); // Pastikan path akurat
+const User = require('../models/User'); // Pastikan path akurat
 
 const talkCooldown = new Set(); 
 
