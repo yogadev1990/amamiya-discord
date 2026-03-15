@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const axios = require('axios'); 
-const User = require('../../models/User'); // Pastikan path model Anda akurat
+const User = require('../../models/User'); 
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -13,33 +13,43 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        // Mengunci sesi (Mencegah timeout 3 detik Discord saat menunggu API)
         await interaction.deferReply();
 
-        // Mengambil input dari antarmuka Slash Command
         const robloxUsername = interaction.options.getString('username');
 
         try {
-            // 1. Eksekusi Pencarian ke Peladen Pusat Roblox
-            const response = await axios.post('https://users.roblox.com/v1/usernames/users', {
+            // 1. Eksekusi Pencarian Identitas ke Peladen Pusat Roblox
+            const userResponse = await axios.post('https://users.roblox.com/v1/usernames/users', {
                 usernames: [robloxUsername],
                 excludeBannedUsers: true
             });
 
-            const data = response.data.data;
+            const userData = userResponse.data.data;
 
-            // Validasi: Jika data kosong, gagalkan proses
-            if (data.length === 0) {
+            if (userData.length === 0) {
                 return interaction.editReply({ 
-                    content: `❌ **Akses Ditolak:** Username Roblox **${robloxUsername}** tidak ditemukan di peladen global. Periksa kembali ejaan Anda.` 
+                    content: `❌ **Akses Ditolak:** Username Roblox **${robloxUsername}** tidak ditemukan di peladen global.` 
                 });
             }
 
-            const robloxData = data[0]; 
+            const robloxData = userData[0]; 
             const robloxId = robloxData.id.toString();
             const realUsername = robloxData.name; 
 
-            // 2. Injeksi Data ke MongoDB Kampus
+            // 2. Eksekusi Penarikan Hash Gambar Avatar (CDN Roblox)
+            let avatarHashUrl = null;
+            try {
+                const thumbResponse = await axios.get(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${robloxId}&size=420x420&format=Png&isCircular=false`);
+                if (thumbResponse.data && thumbResponse.data.data.length > 0) {
+                    // Mengambil tautan CDN berekstensi hash yang Anda maksud
+                    avatarHashUrl = thumbResponse.data.data[0].imageUrl;
+                }
+            } catch (thumbErr) {
+                console.error("Gagal menarik hash gambar Roblox:", thumbErr.message);
+                // Biarkan null jika gagal, Discord Embed akan mengabaikan gambar yang kosong
+            }
+
+            // 3. Injeksi Data ke MongoDB Kampus
             await User.findOneAndUpdate(
                 { userId: interaction.user.id },
                 { 
@@ -47,7 +57,6 @@ module.exports = {
                     username: interaction.user.username,
                     robloxId: robloxId,
                     robloxUsername: realUsername,
-                    // Parameter bawaan mahasiswa baru
                     $setOnInsert: { 
                         xp: 0, 
                         level: 1, 
@@ -58,24 +67,26 @@ module.exports = {
                 { upsert: true, new: true, setDefaultsOnInsert: true }
             );
 
-            // 3. Merender Antarmuka Konfirmasi
+            // 4. Merender Antarmuka Konfirmasi
             const successEmbed = new EmbedBuilder()
-                .setColor('#00BFFF') // Biru klinis sistem Amamiya
+                .setColor('#00BFFF') 
                 .setTitle('✅ Sinkronisasi Identitas Berhasil')
                 .setDescription(`Sistem telah memverifikasi dan menautkan profil Discord Anda dengan basis data praktikum Roblox secara permanen.`)
-                // Mengambil foto profil 3D Roblox secara langsung
-                .setThumbnail(`https://www.roblox.com/headshot-thumbnail/image?userId=${robloxId}&width=420&height=420&format=png`)
                 .addFields(
                     { name: '👤 Username Valid', value: realUsername, inline: true },
                     { name: '🆔 ID Sistem', value: robloxId, inline: true }
                 )
                 .setFooter({ 
-                    text: 'Amamiya AI • Registrasi Praktikum',
+                    text: 'Amamiya AI • Command: /connect',
                     iconURL: interaction.client.user.displayAvatarURL()
                 })
                 .setTimestamp();
 
-            // Mengirimkan UI ke pengguna
+            // Memasang gambar hash CDN jika berhasil ditarik
+            if (avatarHashUrl) {
+                successEmbed.setThumbnail(avatarHashUrl);
+            }
+
             await interaction.editReply({ embeds: [successEmbed] });
 
         } catch (err) {
