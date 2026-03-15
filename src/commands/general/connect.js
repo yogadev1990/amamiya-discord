@@ -35,18 +35,17 @@ module.exports = {
             const robloxData = userData[0]; 
             const robloxId = robloxData.id.toString();
             const realUsername = robloxData.name; 
+            const displayName = robloxData.displayName; // Ekstraksi Nickname/Display Name
 
             // 2. Eksekusi Penarikan Hash Gambar Avatar (CDN Roblox)
             let avatarHashUrl = null;
             try {
                 const thumbResponse = await axios.get(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${robloxId}&size=420x420&format=Png&isCircular=false`);
                 if (thumbResponse.data && thumbResponse.data.data.length > 0) {
-                    // Mengambil tautan CDN berekstensi hash yang Anda maksud
                     avatarHashUrl = thumbResponse.data.data[0].imageUrl;
                 }
             } catch (thumbErr) {
                 console.error("Gagal menarik hash gambar Roblox:", thumbErr.message);
-                // Biarkan null jika gagal, Discord Embed akan mengabaikan gambar yang kosong
             }
 
             // 3. Injeksi Data ke MongoDB Kampus
@@ -73,8 +72,9 @@ module.exports = {
                 .setTitle('✅ Sinkronisasi Identitas Berhasil')
                 .setDescription(`Sistem telah memverifikasi dan menautkan profil Discord Anda dengan basis data praktikum Roblox secara permanen.`)
                 .addFields(
-                    { name: '👤 Username Valid', value: realUsername, inline: true },
-                    { name: '🆔 ID Sistem', value: robloxId, inline: true }
+                    { name: '🏷️ Display Name', value: displayName, inline: true },
+                    { name: '👤 Username', value: realUsername, inline: true },
+                    { name: '🆔 ID', value: robloxId, inline: false }
                 )
                 .setFooter({ 
                     text: 'Amamiya AI • Command: /connect',
@@ -82,7 +82,6 @@ module.exports = {
                 })
                 .setTimestamp();
 
-            // Memasang gambar hash CDN jika berhasil ditarik
             if (avatarHashUrl) {
                 successEmbed.setThumbnail(avatarHashUrl);
             }
