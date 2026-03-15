@@ -1,22 +1,26 @@
-const { EmbedBuilder } = require('discord.js');
-const axios = require('axios'); // Wajib install: npm install axios
-const User = require('../../models/User'); // Sesuaikan path model User kamu
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const axios = require('axios'); 
+const User = require('../../models/User'); // Pastikan path model Anda akurat
 
 module.exports = {
-    name: 'connect',
-    description: 'Hubungkan akun Discord dengan Roblox untuk akses Praktikum',
-    async execute(message, args) {
-        const robloxUsername = args[0];
+    data: new SlashCommandBuilder()
+        .setName('connect')
+        .setDescription('Sinkronisasi akun Discord dengan server praktikum Roblox')
+        .addStringOption(option =>
+            option.setName('username')
+                .setDescription('Ketik username asli Roblox Anda (bukan Display Name)')
+                .setRequired(true)
+        ),
 
-        // Validasi input
-        if (!robloxUsername) {
-            return message.reply("❌ **Format Salah!**\nGunakan: `!connect <username_roblox>`\nContoh: `!connect revanda1990`");
-        }
+    async execute(interaction) {
+        // Mengunci sesi (Mencegah timeout 3 detik Discord saat menunggu API)
+        await interaction.deferReply();
 
-        const loadingMsg = await message.reply("🔍 Mencari data akun Roblox...");
+        // Mengambil input dari antarmuka Slash Command
+        const robloxUsername = interaction.options.getString('username');
 
         try {
-            // 1. Cek ke API Roblox untuk mendapatkan ID dari Username
+            // 1. Eksekusi Pencarian ke Peladen Pusat Roblox
             const response = await axios.post('https://users.roblox.com/v1/usernames/users', {
                 usernames: [robloxUsername],
                 excludeBannedUsers: true
@@ -24,24 +28,26 @@ module.exports = {
 
             const data = response.data.data;
 
-            // Jika username tidak ditemukan
+            // Validasi: Jika data kosong, gagalkan proses
             if (data.length === 0) {
-                return loadingMsg.edit(`❌ Username Roblox **${robloxUsername}** tidak ditemukan! Pastikan ejaan benar.`);
+                return interaction.editReply({ 
+                    content: `❌ **Akses Ditolak:** Username Roblox **${robloxUsername}** tidak ditemukan di peladen global. Periksa kembali ejaan Anda.` 
+                });
             }
 
-            const robloxData = data[0]; // { requestedUsername, hasVerifiedBadge, id, name, displayName }
+            const robloxData = data[0]; 
             const robloxId = robloxData.id.toString();
-            const realUsername = robloxData.name; // Username asli (case sensitive)
+            const realUsername = robloxData.name; 
 
-            // 2. Simpan ke MongoDB (Upsert: Update jika ada, Create jika belum)
+            // 2. Injeksi Data ke MongoDB Kampus
             await User.findOneAndUpdate(
-                { userId: message.author.id },
+                { userId: interaction.user.id },
                 { 
-                    userId: message.author.id,
-                    username: message.author.username,
+                    userId: interaction.user.id,
+                    username: interaction.user.username,
                     robloxId: robloxId,
                     robloxUsername: realUsername,
-                    // Set default value jika user baru
+                    // Parameter bawaan mahasiswa baru
                     $setOnInsert: { 
                         xp: 0, 
                         level: 1, 
@@ -52,23 +58,31 @@ module.exports = {
                 { upsert: true, new: true, setDefaultsOnInsert: true }
             );
 
-            // 3. Konfirmasi Berhasil
-            const embed = new EmbedBuilder()
-                .setColor('#00AAFF')
-                .setTitle('✅ Akun Berhasil Terhubung!')
-                .setDescription(`Akun Discord kamu sekarang terhubung dengan Roblox.`)
+            // 3. Merender Antarmuka Konfirmasi
+            const successEmbed = new EmbedBuilder()
+                .setColor('#00BFFF') // Biru klinis sistem Amamiya
+                .setTitle('✅ Sinkronisasi Identitas Berhasil')
+                .setDescription(`Sistem telah memverifikasi dan menautkan profil Discord Anda dengan basis data praktikum Roblox secara permanen.`)
+                // Mengambil foto profil 3D Roblox secara langsung
                 .setThumbnail(`https://www.roblox.com/headshot-thumbnail/image?userId=${robloxId}&width=420&height=420&format=png`)
                 .addFields(
-                    { name: 'Roblox Username', value: realUsername, inline: true },
-                    { name: 'Roblox ID', value: robloxId, inline: true }
+                    { name: '👤 Username Valid', value: realUsername, inline: true },
+                    { name: '🆔 ID Sistem', value: robloxId, inline: true }
                 )
-                .setFooter({ text: 'Data tersimpan di Database Kampus' });
+                .setFooter({ 
+                    text: 'Amamiya AI • Registrasi Praktikum',
+                    iconURL: interaction.client.user.displayAvatarURL()
+                })
+                .setTimestamp();
 
-            loadingMsg.edit({ content: null, embeds: [embed] });
+            // Mengirimkan UI ke pengguna
+            await interaction.editReply({ embeds: [successEmbed] });
 
         } catch (err) {
-            console.error(err);
-            loadingMsg.edit("❌ Terjadi kesalahan saat menghubungi server Roblox atau Database.");
+            console.error("Kesalahan Sinkronisasi Roblox:", err);
+            await interaction.editReply({
+                content: "❌ **Koneksi Gagal:** Terjadi anomali saat menghubungi API Roblox atau menulis ke dalam database."
+            });
         }
     },
 };
