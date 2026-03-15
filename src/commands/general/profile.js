@@ -1,16 +1,28 @@
-const { EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const axios = require('axios');
 const User = require('../../models/User'); // Load Model MongoDB
 
 module.exports = {
-    name: 'profile',
-    description: 'Lihat Kartu Tanda Mahasiswa (KTM) & Statistik',
-    async execute(message, args) {
-        const target = message.mentions.users.first() || message.author;
-        const member = message.guild.members.cache.get(target.id);
+    data: new SlashCommandBuilder()
+        .setName('profile')
+        .setDescription('Lihat Kartu Tanda Mahasiswa (KTM) & Statistik Akademik')
+        .addUserOption(option =>
+            option.setName('target')
+                .setDescription('Pilih mahasiswa lain untuk melihat profil mereka (kosongkan untuk diri sendiri)')
+                .setRequired(false)
+        ),
+
+    async execute(interaction) {
+        // Mengunci sesi karena ada potensi pemanggilan database dan API
+        await interaction.deferReply();
+
+        // Mengambil target user (Jika tidak diisi, maka target adalah orang yang mengetik command)
+        const targetUser = interaction.options.getUser('target') || interaction.user;
+        const targetMember = interaction.guild.members.cache.get(targetUser.id);
 
         try {
             // 1. Ambil Data dari MongoDB
-            let user = await User.findOne({ userId: target.id });
+            let user = await User.findOne({ userId: targetUser.id });
 
             // Data Default (Dummy) jika user tidak ada di DB
             if (!user) {
@@ -20,55 +32,71 @@ module.exports = {
                     level: 1,
                     inventory: [],
                     totalStudy: 0,
-                    robloxId: null,      // Default null
-                    robloxUsername: null // Default null
+                    robloxId: null,      
+                    robloxUsername: null 
                 };
             }
 
             // 2. Cek Role Angkatan (Visual Only)
-            const angkatanRole = member.roles.cache.find(r => r.name.startsWith('Angkatan'))?.name || 'Mahasiswa Umum';
+            const angkatanRole = targetMember?.roles.cache.find(r => r.name.startsWith('Angkatan'))?.name || 'Mahasiswa Umum';
 
             // 3. Hitung Jam Belajar
             const totalMinutes = user.totalStudy || 0;
             const jam = Math.floor(totalMinutes / 60);
             const menit = totalMinutes % 60;
 
-            // 4. Cek Status Roblox
-            let robloxField = "❌ Belum Terhubung\n(Gunakan `!connect`)";
-            let thumbnailURL = target.displayAvatarURL(); // Default pakai foto Discord
+            // 4. Cek Status Roblox & Tarik Gambar Asli (Hash CDN)
+            let robloxField = "❌ Belum Terhubung\n(Gunakan `/connect`)";
+            let thumbnailURL = targetUser.displayAvatarURL({ dynamic: true, size: 512 }); 
 
             if (user.robloxId) {
                 robloxField = `✅ **${user.robloxUsername}**\nID: ${user.robloxId}`;
-                // Pakai foto kepala karakter Roblox biar keren
-                thumbnailURL = `https://www.roblox.com/headshot-thumbnail/image?userId=${user.robloxId}&width=420&height=420&format=png`;
+                
+                // Menarik hash gambar terbaru dari CDN Roblox
+                try {
+                    const thumbResponse = await axios.get(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${user.robloxId}&size=420x420&format=Png&isCircular=false`);
+                    if (thumbResponse.data && thumbResponse.data.data.length > 0) {
+                        thumbnailURL = thumbResponse.data.data[0].imageUrl;
+                    }
+                } catch (thumbErr) {
+                    console.error("Gagal menarik hash gambar Roblox untuk profile:", thumbErr.message);
+                }
             }
 
-            // 5. Buat Embed KTM
-            const embed = new EmbedBuilder()
-                .setColor(member.displayHexColor)
-                .setTitle(`🎓 KTM: ${target.username.toUpperCase()}`)
-                .setThumbnail(thumbnailURL) // Foto akan berubah jadi Roblox jika connect
+            // 5. Buat Embed KTM yang Terstruktur
+            const profileEmbed = new EmbedBuilder()
+                .setColor(targetMember?.displayHexColor || '#00BFFF') // Menggunakan warna role user atau biru default
+                .setTitle(`🎓 KTM: ${targetUser.username.toUpperCase()}`)
+                .setThumbnail(thumbnailURL) 
                 .addFields(
-                    { name: '🏷️ Status', value: angkatanRole, inline: true },
-                    { name: '🎮 Roblox', value: robloxField, inline: true },
-                    { name: '\u200b', value: '\u200b', inline: true }, // Spacer kosong biar rapi 3 kolom
-
-                    { name: '⭐ Level', value: `${user.level}`, inline: true },
-                    { name: '✨ XP', value: `${user.xp} pts`, inline: true },
-                    { name: '💰 Kekayaan', value: `${user.gold} Gold`, inline: true },
+                    { name: '🏷️ Status Angkatan', value: angkatanRole, inline: true },
+                    { name: '🎮 Integrasi Roblox', value: robloxField, inline: true },
+                    { name: '\u200b', value: '\u200b', inline: true }, // Spacer rapi
                     
-                    { name: '🎒 Inventory', value: `${user.inventory.length} Item`, inline: true },
+                    { name: '⭐ Level Sistem', value: `Level ${user.level}`, inline: true },
+                    { name: '✨ Experience (XP)', value: `${user.xp} pts`, inline: true },
+                    { name: '💰 Saldo Gold', value: `${user.gold} Gold`, inline: true },
+                    
+                    { name: '🎒 Kapasitas Inventory', value: `${user.inventory.length} Item Tersimpan`, inline: true },
                     { name: '📚 Total Jam Belajar', value: `${jam} Jam ${menit} Menit`, inline: true },
+                    { name: '\u200b', value: '\u200b', inline: true }, // Spacer baris bawah
                     
-                    { name: 'Bergabung', value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>`, inline: false }
+                    { name: '📅 Tanggal Registrasi Discord', value: `<t:${Math.floor(targetUser.createdTimestamp / 1000)}:R>`, inline: true }
                 )
-                .setFooter({ text: `User ID: ${target.id} • Universitas Sriwijaya` });
+                .setFooter({ 
+                    text: `ID: ${targetUser.id} • Sistem Informasi KG`,
+                    iconURL: interaction.client.user.displayAvatarURL()
+                })
+                .setTimestamp();
 
-            message.reply({ embeds: [embed] });
+            // Eksekusi Pengiriman Antarmuka
+            await interaction.editReply({ embeds: [profileEmbed] });
 
         } catch (err) {
-            console.error("Profile Error:", err);
-            message.reply("❌ Gagal mengambil data profil dari database.");
+            console.error("Kesalahan Profil Sistem:", err);
+            await interaction.editReply({
+                content: "❌ **Database Error:** Gagal memuat data profil KTM dari peladen MongoDB utama."
+            });
         }
     },
 };
