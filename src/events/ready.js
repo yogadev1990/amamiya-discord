@@ -6,6 +6,6 @@ module.exports = {
         console.log(`💻 Sedang berjalan di ${client.guilds.cache.size} server.`);
         
         // Set status bot (Playing/Watching)
-        client.user.setActivity('Menunggu Perintah !menu', { type: 4 }); // 4 = Custom Status
+        client.user.setActivity('Menunggu Perintah /menu', { type: 4 }); // 4 = Custom Status
     },
 };
