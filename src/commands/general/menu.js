@@ -71,8 +71,8 @@ module.exports = {
 
         // 3. Merender UI Utama (Beranda)
         const mainEmbed = new EmbedBuilder()
-            .setColor('#1C2833') // Warna dark mode yang elegan
-            .setAuthor({ name: '🏥 AMAMIYA MENU V3.0' })
+            .setColor('#2b98ff') // Warna dark mode yang elegan
+            .setAuthor({ name: '🏥 LIST COMMAND AMAMIYA' })
             .setDescription(`Halo **${interaction.user.username}**, staff akademik Amamiya siap membantu.\n\nSaat ini terdeteksi **${totalModules} modul perintah** aktif.\nSilakan pilih kategori di bawah untuk mengakses manual.`)
             .addFields(
                 { name: '📆 Tanggal', value: today, inline: true },
