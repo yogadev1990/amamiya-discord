@@ -1,59 +1,77 @@
-const { EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../models/User');
 
 module.exports = {
-    name: 'transfer',
-    description: 'Kirim Gold ke user lain. Pajak admin 5%.',
-    async execute(message, args) {
-        // Format: !transfer @user [jumlah]
-        const target = message.mentions.users.first();
-        const amount = parseInt(args[1]);
+    data: new SlashCommandBuilder()
+        .setName('transfer')
+        .setDescription('Kirim saldo Gold ke pengguna lain (Dikenakan pajak sistem 5%)')
+        .addUserOption(option =>
+            option.setName('target')
+                .setDescription('Pilih mahasiswa penerima dana')
+                .setRequired(true)
+        )
+        .addIntegerOption(option =>
+            option.setName('nominal')
+                .setDescription('Jumlah Gold yang akan dikirim')
+                .setRequired(true)
+                .setMinValue(1) // Mencegah eksploitasi transfer minus
+        ),
 
-        // --- VALIDASI ---
-        if (!target) return message.reply("❌ Mau kirim ke siapa? Tag orangnya.\nContoh: `!transfer @Budi 100`");
-        if (!amount || isNaN(amount) || amount <= 0) return message.reply("❌ Masukkan jumlah uang yang valid.");
-        if (target.id === message.author.id) return message.reply("❌ Gak bisa kirim ke diri sendiri (Cuci uang ya?).");
-        if (target.bot) return message.reply("🤖 Robot tidak butuh uang.");
+    async execute(interaction) {
+        await interaction.deferReply();
 
-        // --- DATABASE ---
-        const sender = await User.findOne({ userId: message.author.id });
-        const receiver = await User.findOne({ userId: target.id });
+        const target = interaction.options.getUser('target');
+        const amount = interaction.options.getInteger('nominal');
 
-        if (!sender || sender.gold < amount) {
-            return message.reply(`💸 **Saldo Kurang!**\nUangmu cuma: ${sender ? sender.gold : 0} Gold.`);
+        // --- VALIDASI ENTITAS ---
+        if (target.id === interaction.user.id) return interaction.editReply("❌ **Peringatan Keamanan:** Sistem mendeteksi upaya pencucian uang. Anda tidak bisa mentransfer ke diri sendiri.");
+        if (target.bot) return interaction.editReply("🤖 **Sistem Menolak:** Entitas AI beroperasi tanpa membutuhkan sistem moneter manusia.");
+
+        try {
+            // --- EKSEKUSI DATABASE ---
+            const sender = await User.findOne({ userId: interaction.user.id });
+            if (!sender || sender.gold < amount) {
+                return interaction.editReply(`💸 **Saldo Defisit!**\nSisa saldo Anda: **${sender ? sender.gold : 0} Gold**.\nNominal transfer: **${amount} Gold**.`);
+            }
+
+            let receiver = await User.findOne({ userId: target.id });
+            if (!receiver) {
+                receiver = new User({ userId: target.id, username: target.username, gold: 0, inventory: [] });
+            }
+
+            // --- KALKULASI PAJAK MUTLAK ---
+            const taxRate = 0.05; // Pajak 5%
+            const tax = Math.floor(amount * taxRate);
+            const finalAmount = amount - tax;
+
+            // --- TRANSAKSI ---
+            sender.gold -= amount;
+            receiver.gold += finalAmount;
+
+            await sender.save();
+            await receiver.save();
+
+            // --- RENDER ANTARMUKA FAKTUR ---
+            const embedSuccess = new EmbedBuilder()
+                .setColor('#2ECC71') // Hijau Keuangan
+                .setTitle('💳 FAKTUR TRANSFER BERHASIL')
+                .setDescription(`Dana telah dipindahkan secara aman dari rekening **${interaction.user.username}** ke rekening **${target.username}**.`)
+                .addFields(
+                    { name: '📤 Nominal Dikirim', value: `${amount} Gold`, inline: true },
+                    { name: '📉 Potongan Pajak (5%)', value: `-${tax} Gold`, inline: true },
+                    { name: '📥 Diterima Bersih', value: `**${finalAmount} Gold**`, inline: false }
+                )
+                .setFooter({ 
+                    text: `Sisa Saldo Anda: ${sender.gold} Gold`, 
+                    iconURL: interaction.client.user.displayAvatarURL() 
+                })
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [embedSuccess] });
+
+        } catch (error) {
+            console.error("Kesalahan Sistem Perbankan:", error);
+            await interaction.editReply("❌ **Sistem Gagal:** Terjadi anomali saat menghubungi bank sentral server.");
         }
-
-        // Kalau penerima belum main (belum ada di DB), buatkan akun
-        if (!receiver) {
-            await User.create({ userId: target.id, username: target.username, gold: 0 });
-            // Fetch ulang biar variabel 'receiver' ada isinya
-            receiver = await User.findOne({ userId: target.id });
-        }
-
-        // --- PAJAK (Opsional, biar ekonomi gak inflasi) ---
-        const taxRate = 0.05; // 5%
-        const tax = Math.floor(amount * taxRate);
-        const finalAmount = amount - tax;
-
-        // --- TRANSAKSI ---
-        sender.gold -= amount;
-        receiver.gold += finalAmount;
-
-        await sender.save();
-        await receiver.save();
-
-        // --- LOG ---
-        const embed = new EmbedBuilder()
-            .setColor(0x2ECC71)
-            .setTitle('💸 TRANSFER BERHASIL')
-            .addFields(
-                { name: 'Pengirim', value: `${message.author.username}`, inline: true },
-                { name: 'Penerima', value: `${target.username}`, inline: true },
-                { name: 'Nominal', value: `${amount} Gold`, inline: true },
-                { name: 'Diterima', value: `**${finalAmount} Gold**\n*(Potongan pajak ${tax})*`, inline: true }
-            )
-            .setFooter({ text: `Sisa Saldo: ${sender.gold} Gold` });
-
-        message.reply({ embeds: [embed] });
     },
 };

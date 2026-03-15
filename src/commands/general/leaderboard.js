@@ -38,7 +38,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor('#F1C40F') // Emas Akademik
                 .setTitle('🏆 Papan Peringkat Akademik FKG')
-                .setDescription(`Berikut adalah daftar 10 mahasiswa dengan akumulasi *Experience Point* (XP) dan jam terbang tertinggi di peladen ini:\n\n${leaderboardString}`)
+                .setDescription(`Berikut adalah daftar 10 mahasiswa dengan akumulasi *Experience Point* (XP) dan jam terbang tertinggi di server ini:\n\n${leaderboardString}`)
                 .setThumbnail('https://cdn-icons-png.flaticon.com/512/3112/3112946.png') // Ikon piala
                 .setFooter({ 
                     text: 'Sistem Penilaian Otomatis Amamiya', 
@@ -50,7 +50,7 @@ module.exports = {
 
         } catch (error) {
             console.error("Kesalahan Papan Peringkat:", error);
-            await interaction.editReply("❌ **Sistem Gagal:** Terjadi anomali saat mengambil data dari peladen utama.");
+            await interaction.editReply("❌ **Sistem Gagal:** Terjadi anomali saat mengambil data dari server utama.");
         }
     },
 };

@@ -1,83 +1,98 @@
-const { EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../models/User');
 
 module.exports = {
-    name: 'give',
-    description: 'Berikan item dari tasmu ke teman.',
-    async execute(message, args) {
-        // Format: !give @user [item_id] [jumlah (opsional, default 1)]
-        const target = message.mentions.users.first();
-        const itemId = args[1]?.toLowerCase();
-        let amount = parseInt(args[2]);
+    data: new SlashCommandBuilder()
+        .setName('give')
+        .setDescription('Memberikan peralatan medis atau item kepada rekan sejawat')
+        .addUserOption(option =>
+            option.setName('target')
+                .setDescription('Pilih mahasiswa penerima barang')
+                .setRequired(true)
+        )
+        .addStringOption(option =>
+            option.setName('item_id')
+                .setDescription('Ketik ID barang yang ingin diberikan (Contoh: kaca_mulut)')
+                .setRequired(true)
+        )
+        .addIntegerOption(option =>
+            option.setName('jumlah')
+                .setDescription('Jumlah barang yang dikirim (Default: 1)')
+                .setRequired(false)
+                .setMinValue(1) // Mutlak tidak bisa mengirim minus
+        ),
 
-        // --- VALIDASI ---
-        if (!target) return message.reply("❌ Tag teman yang mau dikasih.\nContoh: `!give @Siti kopi`");
-        if (!itemId) return message.reply("❌ Masukkan ID barang yang mau dikasih.");
-        if (!amount || isNaN(amount) || amount < 1) amount = 1;
+    async execute(interaction) {
+        await interaction.deferReply();
 
-        if (target.id === message.author.id) return message.reply("❌ Simpan aja sendiri.");
-        if (target.bot) return message.reply("🤖 Aku tidak butuh barang fana.");
+        const target = interaction.options.getUser('target');
+        const itemId = interaction.options.getString('item_id').toLowerCase();
+        const amount = interaction.options.getInteger('jumlah') || 1;
 
-        // --- DATABASE ---
-        const sender = await User.findOne({ userId: message.author.id });
-        let receiver = await User.findOne({ userId: target.id });
+        // --- VALIDASI LOGIKA ---
+        if (target.id === interaction.user.id) return interaction.editReply("❌ **Sistem Menolak:** Anda tidak dapat mengirim barang kepada diri sendiri.");
+        if (target.bot) return interaction.editReply("🤖 **Sistem Menolak:** Entitas AI tidak membutuhkan material fana.");
 
-        if (!sender || !sender.inventory) return message.reply("🎒 Tas kamu kosong.");
-
-        // Kalau penerima belum ada akun, buatkan
-        if (!receiver) {
-            receiver = await User.create({ userId: target.id, username: target.username, gold: 1000, inventory: [] });
-        }
-
-        // --- CEK KETERSEDIAAN BARANG ---
-        // Kita hitung dulu sender punya berapa barang dengan ID tersebut
-        const senderItems = sender.inventory.filter(i => i.itemId === itemId);
-        
-        if (senderItems.length < amount) {
-            return message.reply(`❌ **Stok Kurang!**\nKamu cuma punya **${senderItems.length}** item dengan ID \`${itemId}\`.\nKamu mau kasih **${amount}**.`);
-        }
-
-        // --- PROSES PEMINDAHAN (TRANSAKSI) ---
-        // Karena inventory bentuknya Array of Objects, kita harus pindahkan satu-satu
-        const itemsToMove = [];
-        
-        // Ambil data detail item (nama, rarity) dari salah satu sampel
-        const sampleItem = senderItems[0]; 
-
-        // 1. Hapus dari Sender
-        let removedCount = 0;
-        // Loop backward biar aman saat splice array
-        for (let i = sender.inventory.length - 1; i >= 0; i--) {
-            if (removedCount >= amount) break; // Sudah cukup
-            
-            if (sender.inventory[i].itemId === itemId) {
-                // Hapus dan simpan ke temporary array
-                itemsToMove.push(sender.inventory[i]); 
-                sender.inventory.splice(i, 1);
-                removedCount++;
+        try {
+            // --- EKSEKUSI DATABASE ---
+            const sender = await User.findOne({ userId: interaction.user.id });
+            if (!sender || !sender.inventory || sender.inventory.length === 0) {
+                return interaction.editReply("🎒 **Inventaris Kosong:** Anda tidak memiliki barang apapun untuk diberikan.");
             }
+
+            let receiver = await User.findOne({ userId: target.id });
+            if (!receiver) {
+                // Membangun akun otomatis untuk penerima jika belum ada
+                receiver = new User({ userId: target.id, username: target.username, gold: 1000, inventory: [] });
+            }
+
+            // --- KALKULASI KETERSEDIAAN BARANG ---
+            const senderItems = sender.inventory.filter(i => i.itemId === itemId);
+            if (senderItems.length < amount) {
+                return interaction.editReply(`❌ **Defisit Stok:** Anda hanya memiliki **${senderItems.length}** unit barang dengan ID \`${itemId}\`. Transaksi dibatalkan.`);
+            }
+
+            // --- PROSES PEMINDAHAN MUTLAK ---
+            const itemsToMove = [];
+            const sampleItem = senderItems[0]; 
+            let removedCount = 0;
+
+            // Memindai inventaris dari belakang untuk mencegah pergeseran indeks saat menghapus item
+            for (let i = sender.inventory.length - 1; i >= 0; i--) {
+                if (removedCount >= amount) break; 
+                
+                if (sender.inventory[i].itemId === itemId) {
+                    itemsToMove.push(sender.inventory[i]); 
+                    sender.inventory.splice(i, 1);
+                    removedCount++;
+                }
+            }
+
+            // Injeksi barang ke inventaris penerima
+            receiver.inventory.push(...itemsToMove);
+
+            // Simpan perubahan ke pangkalan data
+            await sender.save();
+            await receiver.save();
+
+            // --- RENDER ANTARMUKA LOG ---
+            const embedSuccess = new EmbedBuilder()
+                .setColor('#3498DB') // Biru Logistik
+                .setTitle('📦 LOGISTIK TERKIRIM')
+                .setDescription(`Pengiriman aset dari **${interaction.user.username}** kepada **${target.username}** telah dikonfirmasi oleh sistem.`)
+                .addFields(
+                    { name: '🛒 Nama Barang', value: sampleItem.itemName || itemId, inline: true },
+                    { name: '🔢 Kuantitas', value: `${amount} Unit`, inline: true },
+                    { name: '✨ Kelangkaan', value: sampleItem.rarity || 'Common', inline: true }
+                )
+                .setFooter({ text: 'Sistem Manajemen Inventaris Amamiya' })
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [embedSuccess] });
+
+        } catch (error) {
+            console.error("Kesalahan Transfer Item:", error);
+            await interaction.editReply("❌ **Sistem Gagal:** Terjadi anomali pada pangkalan data saat memproses transaksi.");
         }
-
-        // 2. Masukkan ke Receiver
-        // Kita push object yang tadi diambil
-        itemsToMove.forEach(item => {
-            receiver.inventory.push(item);
-        });
-
-        await sender.save();
-        await receiver.save();
-
-        // --- LOG ---
-        const embed = new EmbedBuilder()
-            .setColor(0x3498DB) // Biru
-            .setTitle('🎁 GIFT SENT!')
-            .setDescription(`**${message.author.username}** memberikan hadiah kepada **${target.username}**.`)
-            .addFields(
-                { name: 'Barang', value: `${sampleItem.itemName}`, inline: true },
-                { name: 'Jumlah', value: `${amount} pcs`, inline: true },
-                { name: 'Rarity', value: `${sampleItem.rarity || 'Common'}`, inline: true }
-            );
-
-        message.reply({ embeds: [embed] });
     },
 };

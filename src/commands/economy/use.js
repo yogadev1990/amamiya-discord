@@ -1,70 +1,113 @@
-const { EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../models/User');
+const Item = require('../../models/Item'); // Wajib: Pastikan model Item sudah ada
 
 module.exports = {
-    name: 'use',
-    description: 'Gunakan item dari tas inventory',
-    async execute(message, args) {
-        // Format: !use [item_id] [mention_user (opsional)]
-        const itemId = args[0]?.toLowerCase();
-        const targetUser = message.mentions.users.first() || message.author;
+    data: new SlashCommandBuilder()
+        .setName('use')
+        .setDescription('Gunakan barang konsumsi atau luncurkan item medis ke teman')
+        .addStringOption(option =>
+            option.setName('item_id')
+                .setDescription('Ketik ID barang (Contoh: kopi, alginate, lidocaine, tang_cabut)')
+                .setRequired(true)
+        )
+        .addUserOption(option =>
+            option.setName('target')
+                .setDescription('Pilih korban jika item membutuhkan target fisik')
+                .setRequired(false)
+        ),
 
-        if (!itemId) return message.reply("❌ Mau pakai apa? Cek tas dulu (`!tas`).\nContoh: `!use kopi`");
+    async execute(interaction) {
+        await interaction.deferReply();
 
-        // 1. Ambil Data User (Pemilik Item)
-        let user = await User.findOne({ userId: message.author.id });
-        if (!user || !user.inventory) return message.reply("🎒 Tas kamu kosong melompong.");
+        const itemId = interaction.options.getString('item_id').toLowerCase();
+        const targetUser = interaction.options.getUser('target') || interaction.user;
+        const client = interaction.client;
 
-        // 2. Cari Item di Inventory
-        // Kita cari index-nya biar gampang dihapus nanti
-        const itemIndex = user.inventory.findIndex(i => i.itemId === itemId);
-        
-        if (itemIndex === -1) {
-            return message.reply(`❌ Kamu tidak punya item dengan ID **${itemId}**.`);
-        }
-
-        const itemData = user.inventory[itemIndex];
-
-        // --- 3. LOGIKA EFEK ITEM (RPG MECHANIC) ---
-        let replyMsg = "";
-        let embedColor = 0x95A5A6; // Abu default
-
-        // CASE A: KOPI (Nambah XP)
-        if (itemId === 'kopi') {
-            const xpAmount = 50;
-            user.xp += xpAmount; // Tambah ke diri sendiri
-            
-            replyMsg = `☕ **SLURP!** Segar!\n${message.author} meminum Kopi Kapal Api.\n**+${xpAmount} XP** (Mata jadi melek lagi!)`;
-            embedColor = 0x6F4E37; // Coklat Kopi
-        }
-        
-        // CASE B: LIDOCAINE (Prank Teman)
-        else if (itemId === 'lidocaine') {
-            if (targetUser.id === message.author.id) {
-                return message.reply("💉 Jangan bius diri sendiri, bahaya!");
+        try {
+            // 1. Validasi Pemilik & Tas
+            let user = await User.findOne({ userId: interaction.user.id });
+            if (!user || !user.inventory || user.inventory.length === 0) {
+                return interaction.editReply("🎒 **Inventaris Kosong:** Anda tidak memiliki item apapun.");
             }
+
+            const itemIndex = user.inventory.findIndex(i => i.itemId.toLowerCase() === itemId);
+            if (itemIndex === -1) {
+                return interaction.editReply(`❌ **Stok Kosong:** Item dengan ID **\`${itemId}\`** tidak ditemukan di tas Anda.`);
+            }
+
+            const itemData = user.inventory[itemIndex];
             
-            // Di sini kita main Roleplay Text aja (kalau mau mute beneran butuh permission admin)
-            replyMsg = `💉 **CESS...**\n${message.author} menyuntikkan Lidocaine ke pantat **${targetUser.username}**!\n\n😵 **${targetUser.username}** sekarang mati rasa dan tidak bisa merasakan kakinya.`;
-            embedColor = 0xE74C3C; // Merah Darah
+            // Coba ambil dari DB Item jika sudah ada
+            const itemDef = await Item.findOne({ itemId: itemData.itemId });
+            if (itemDef && itemDef.platform === 'roblox') isRobloxPlatform = true;
+
+            if (isRobloxPlatform) {
+                return interaction.editReply(`⚠️ **Akses Ditolak:** Alat **${itemData.itemName}** adalah aset klinis permanen. Hanya bisa digunakan di dalam server praktikum Roblox.`);
+            }
+
+            // 3. LOGIKA EFEK
+            let replyMsg = "";
+            let embedColor = '#95A5A6';
+            let requireSaveTarget = false;
+            let targetData = null;
+
+            if (itemId === 'kopi') {
+                const xpAmount = 50;
+                user.xp += xpAmount;
+                replyMsg = `☕ **SLURP!**\n<@${interaction.user.id}> meminum Kopi pekat.\nSistem menginjeksi **+${xpAmount} XP** ke dalam profil Anda.`;
+                embedColor = '#6F4E37';
+            }
+            else if (itemId === 'alginate') {
+                if (targetUser.id === interaction.user.id) return interaction.editReply("🥣 **Ditolak:** Anda tidak bisa mencetak mulut Anda sendiri.");
+                
+                // Set durasi 5 menit (300000 ms)
+                client.alginateGags.set(targetUser.id, Date.now() + 300000);
+                
+                replyMsg = `🥣 **SPLAT!**\n<@${interaction.user.id}> menyumpal mulut <@${targetUser.id}> dengan Alginate!\n\n🤐 Mulut korban terkunci. Selama 5 menit ke depan, obrolannya akan menjadi gumaman!`;
+                embedColor = '#FFC0CB';
+            }
+            else if (itemId === 'lidocaine') {
+                if (targetUser.id === interaction.user.id) return interaction.editReply("💉 **Ditolak:** Jangan membius diri sendiri.");
+                
+                // Set durasi 10 menit (600000 ms)
+                client.lidocaineNumbs.set(targetUser.id, Date.now() + 600000);
+                
+                replyMsg = `💉 **CESS...**\n<@${interaction.user.id}> menyuntikkan Lidocaine ke <@${targetUser.id}>!\n\n😵 Korban mati rasa. Selama 10 menit ke depan, korban **TIDAK AKAN MENDAPATKAN XP** dari pesan apapun.`;
+                embedColor = '#E74C3C';
+            }
+            else if (itemId === 'tang_cabut') {
+                if (targetUser.id === interaction.user.id) return interaction.editReply("🦷 **Ditolak:** Anda tidak bisa mencabut gigi sendiri.");
+                
+                targetData = await User.findOne({ userId: targetUser.id });
+                if (!targetData || targetData.gold < 50) return interaction.editReply(`❌ **Gagal:** <@${targetUser.id}> terlalu miskin (Gold < 50) untuk dicuri giginya.`);
+
+                targetData.gold -= 50;
+                user.gold += 50;
+                requireSaveTarget = true; 
+
+                replyMsg = `🩸 **KRAK!**\n<@${interaction.user.id}> mencabut gigi geraham <@${targetUser.id}> secara paksa!\n\n💰 Gigi dijual. Anda mendapat **+50 Gold**, korban kehilangan **-50 Gold**!`;
+                embedColor = '#8B0000';
+            }
+            else {
+                replyMsg = `✅ Anda mengeluarkan **${itemData.itemName}**.`;
+            }
+
+            // 4. PENGHAPUSAN BARANG & PENYIMPANAN
+            user.inventory.splice(itemIndex, 1);
+            await user.save();
+            if (requireSaveTarget && targetData) await targetData.save();
+
+            const embedAction = new EmbedBuilder()
+                .setColor(embedColor)
+                .setDescription(replyMsg)
+                .setFooter({ text: `Sisa ${itemData.itemName}: ${user.inventory.filter(i => i.itemId === itemId).length}` });
+
+            await interaction.editReply({ embeds: [embedAction] });
+
+        } catch (error) {
+            console.error("Kesalahan Sistem Penggunaan Item:", error);
+            await interaction.editReply("❌ **Sistem Gagal:** Terjadi anomali saat memproses eksekusi item.");
         }
-
-        // CASE C: ITEM LAIN (Default)
-        else {
-            return message.reply("🤔 Item ini sepertinya hanya pajangan (atau belum ada efeknya).");
-        }
-
-        // 4. HAPUS ITEM DARI TAS (Consumable)
-        // Hapus 1 item dari array inventory
-        user.inventory.splice(itemIndex, 1);
-        await user.save();
-
-        // 5. KIRIM PESAN RPG
-        const embedAction = new EmbedBuilder()
-            .setColor(embedColor)
-            .setDescription(replyMsg)
-            .setFooter({ text: `Sisa ${itemData.itemName} di tas: ${user.inventory.filter(i => i.itemId === itemId).length}` });
-
-        return message.reply({ embeds: [embedAction] });
     },
 };

@@ -1,152 +1,132 @@
-const { EmbedBuilder } = require('discord.js');
-const User = require('../../models/User');
-
-// --- DATABASE BARANG DAGANGAN ---
-// Tips: ID harus unik, jangan pakai spasi
-const shopItems = [
-    { 
-        id: 'medical_tablet', 
-        name: '📱 Tablet Rekam Medis', 
-        price: 0, 
-        desc: 'Wajib punya! Gunakan untuk anamnesis pasien AI di Roblox.',
-        type: 'tool' 
-    },
-    { 
-        id: 'diagnostic_set', 
-        name: '🩺 Diagnostic Set Basic', 
-        price: 500, 
-        desc: 'Berisi Kaca Mulut & Sonde. Syarat melakukan pemeriksaan fisik.',
-        type: 'tool' 
-    },
-    { 
-        id: 'jas_lab', 
-        name: '🥼 Jas Lab Putih', 
-        price: 1500, 
-        desc: 'Seragam wajib praktikum. Menambah wibawa dokter.',
-        type: 'cosmetic' 
-    },
-    { 
-        id: 'highspeed_drill', 
-        name: '🔫 High Speed Drill', 
-        price: 3000, 
-        desc: 'Bor kecepatan tinggi untuk prosedur penambalan gigi.',
-        type: 'tool' 
-    },
-    { 
-        id: 'kopi', 
-        name: '☕ Kopi Sachet', 
-        price: 200, 
-        desc: 'Menghilangkan ngantuk. (+50 XP Instan)',
-        type: 'consumable' 
-    },
-    { 
-        id: 'vitamin', 
-        name: '💉 Vitamin C Dosis Tinggi', 
-        price: 1000, 
-        desc: 'Otak jadi encer. (XP Boost 2x selama 1 jam)',
-        type: 'consumable' 
-    },
-    { 
-        id: 'lidocaine', 
-        name: '🤫 Lidocaine (Obat Bius)', 
-        price: 750, 
-        desc: 'Suntik temanmu biar diam. (Mute user lain 5 menit)',
-        type: 'tool' 
-    },
-    { 
-        id: 'sultan', 
-        name: '👑 Sertifikat Sultan', 
-        price: 50000, 
-        desc: 'Bukti kekayaan mutlak. (Dapat Role "Donatur" permanen)',
-        type: 'role' 
-    }
-];
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const User = require('../../models/User'); 
+const Item = require('../../models/Item'); // Model Item yang baru saja kita buat
 
 module.exports = {
-    name: 'shop',
-    description: 'Belanja kebutuhan di Koperasi Amamiya',
-    async execute(message, args) {
-        const subCommand = args[0]?.toLowerCase(); // !shop [buy/list]
-        const itemCode = args[1]?.toLowerCase();   // !shop buy [id]
-        const amount = parseInt(args[2]) || 1;     // !shop buy [id] [jumlah]
+    data: new SlashCommandBuilder()
+        .setName('shop')
+        .setDescription('Koperasi Peralatan Medis FKG (Terintegrasi dengan Praktikum Roblox)')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('list')
+                .setDescription('Melihat katalog lengkap peralatan medis yang tersedia')
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('buy')
+                .setDescription('Membeli peralatan medis menggunakan saldo Gold')
+                .addStringOption(option =>
+                    option.setName('item_id')
+                        .setDescription('Ketik ID barang yang ingin dibeli (Contoh: kaca_mulut)')
+                        .setRequired(true)
+                )
+                .addIntegerOption(option =>
+                    option.setName('jumlah')
+                        .setDescription('Jumlah barang yang ingin dibeli (Default: 1)')
+                        .setRequired(false)
+                        .setMinValue(1) // Mencegah pembelian minus
+                )
+        ),
 
-        // --- 1. TAMPILKAN DAFTAR BARANG (!shop) ---
-        if (!subCommand || subCommand === 'list') {
-            const embedShop = new EmbedBuilder()
-                .setColor(0x2ECC71) // Hijau Duit
-                .setTitle('🏪 KOPERASI MAHASISWA AMAMIYA')
-                .setDescription('Gunakan uang hasil kerja kerasmu di sini.\nCara beli: `!shop buy [id_barang] [jumlah]`')
-                .setFooter({ text: 'Barang yang sudah dibeli tidak bisa direfund!' });
+    async execute(interaction) {
+        await interaction.deferReply();
 
-            // Loop items buat bikin field otomatis
-            shopItems.forEach(item => {
-                embedShop.addFields({
-                    name: `${item.name} — 💰 ${item.price} Gold`,
-                    value: `🆔 ID: \`${item.id}\`\n📝 ${item.desc}`,
-                    inline: false
+        const subCommand = interaction.options.getSubcommand();
+
+        try {
+            // --- LOGIKA 1: MENAMPILKAN KATALOG (/shop list) ---
+            if (subCommand === 'list') {
+                // Menarik semua item dari MongoDB yang status isBuyable = true
+                const shopItems = await Item.find({ isBuyable: true }).sort({ price: 1 });
+
+                if (!shopItems || shopItems.length === 0) {
+                    return interaction.editReply("⚠️ **Koperasi Kosong:** Belum ada barang yang diunggah ke database.");
+                }
+
+                const embedShop = new EmbedBuilder()
+                    .setColor('#2ECC71') // Hijau Transaksi
+                    .setTitle('🏪 KOPERASI MAHASISWA AMAMIYA')
+                    .setDescription('Selamat datang di Koperasi FKG. Semua peralatan yang Anda beli di sini akan otomatis masuk ke inventaris karakter Roblox Anda.\n\nGunakan perintah `/shop buy [item_id]` untuk membeli perlengkapan.')
+                    .setThumbnail('https://cdn-icons-png.flaticon.com/512/3081/3081986.png')
+                    .setFooter({ text: 'Sistem Integrasi Ekonomi Amamiya' })
+                    .setTimestamp();
+
+                // Memasukkan setiap barang dari database ke dalam UI Embed
+                shopItems.forEach(item => {
+                    // Menambahkan warna atau emoji berdasarkan kelangkaan (Rarity)
+                    let rarityEmoji = '⚪';
+                    if (item.rarity === 'Uncommon') rarityEmoji = '🟢';
+                    if (item.rarity === 'Rare') rarityEmoji = '🔵';
+                    if (item.rarity === 'Epic') rarityEmoji = '🟣';
+
+                    embedShop.addFields({
+                        name: `${rarityEmoji} ${item.displayName} — 💰 ${item.price} Gold`,
+                        value: `> 🆔 ID: **\`${item.itemId}\`**\n> 📦 Kategori: ${item.category}\n> 📝 *${item.description}*`,
+                        inline: false
+                    });
                 });
-            });
 
-            return message.reply({ embeds: [embedShop] });
-        }
-
-        // --- 2. FITUR BELI (!shop buy) ---
-        if (subCommand === 'buy') {
-            if (!itemCode) return message.reply("❌ Mau beli apa? Cek ID barang di `!shop` dulu.");
-
-            // Cari barang di database lokal
-            const itemToBuy = shopItems.find(i => i.id === itemCode);
-            if (!itemToBuy) return message.reply("❌ Barang tidak ditemukan! Cek ejaan ID-nya.");
-
-            // Hitung total harga
-            const totalPrice = itemToBuy.price * amount;
-
-            // Ambil data user dari DB
-            let user = await User.findOne({ userId: message.author.id });
-            if (!user) return message.reply("❌ Kamu belum punya akun. Ketik `!daily` dulu.");
-
-            // Cek Uang
-            if (user.gold < totalPrice) {
-                return message.reply(`💸 **Uang Gak Cukup!**\nHarga: ${totalPrice}\nUangmu: ${user.gold}`);
+                return interaction.editReply({ embeds: [embedShop] });
             }
 
-            // --- PROSES TRANSAKSI ---
-            
-            // A. Kurangi Uang
-            user.gold -= totalPrice;
+            // --- LOGIKA 2: MEMBELI BARANG (/shop buy) ---
+            if (subCommand === 'buy') {
+                const itemCode = interaction.options.getString('item_id');
+                const amount = interaction.options.getInteger('jumlah') || 1;
 
-            // B. Masukkan ke Inventory
-            // Kita cek dulu apakah item sudah ada di inventory (kalau mau ditumpuk/stack)
-            // Tapi untuk simpelnya, kita push object baru aja.
-            
-            // Format item di inventory disamakan dengan Gacha biar konsisten
-            for (let i = 0; i < amount; i++) {
-                user.inventory.push({
-                    itemId: itemToBuy.id,
-                    itemName: itemToBuy.name,
-                    rarity: 'Shop Item', // Rarity khusus barang toko
-                    type: itemToBuy.type // Simpan tipe buat logic !use nanti
-                });
+                // Memverifikasi apakah barang yang dicari ada di Database Item
+                const itemToBuy = await Item.findOne({ itemId: itemCode, isBuyable: true });
+                if (!itemToBuy) {
+                    return interaction.editReply(`❌ **Transaksi Ditolak:** Barang dengan ID **\`${itemCode}\`** tidak ditemukan di etalase koperasi.`);
+                }
+
+                const totalPrice = itemToBuy.price * amount;
+
+                // Memverifikasi akun pengguna
+                let user = await User.findOne({ userId: interaction.user.id });
+                if (!user) {
+                    return interaction.editReply("❌ **Akses Ditolak:** Anda belum terdaftar di sistem akademik. Silakan kirim pesan apapun terlebih dahulu untuk memicu pembuatan profil otomatis.");
+                }
+
+                // Memverifikasi Saldo Gold
+                if (user.gold < totalPrice) {
+                    return interaction.editReply(`💸 **Saldo Tidak Mencukupi!**\nTotal Tagihan: **${totalPrice} Gold**\nSaldo Anda saat ini: **${user.gold} Gold**`);
+                }
+
+                // Eksekusi Pemotongan Saldo
+                user.gold -= totalPrice;
+
+                // Eksekusi Penyimpanan Barang ke Inventaris Pengguna
+                // (Menambahkan barang ke dalam array inventory)
+                for (let i = 0; i < amount; i++) {
+                    user.inventory.push({
+                        itemId: itemToBuy.itemId,
+                        itemName: itemToBuy.displayName,
+                        rarity: itemToBuy.rarity,
+                        category: itemToBuy.category 
+                    });
+                }
+
+                await user.save();
+
+                const embedSuccess = new EmbedBuilder()
+                    .setColor('#F1C40F') // Emas Transaksi Berhasil
+                    .setTitle('✅ PEMBELIAN BERHASIL')
+                    .setDescription(`Faktur pembelian atas nama **${interaction.user.username}** telah dicetak. Barang telah dikirim ke tas Anda.`)
+                    .addFields(
+                        { name: '🛒 Barang', value: `${amount}x ${itemToBuy.displayName}`, inline: true },
+                        { name: '💳 Total Pembayaran', value: `${totalPrice} Gold`, inline: true },
+                        { name: '💰 Sisa Saldo', value: `${user.gold} Gold`, inline: true }
+                    )
+                    .setFooter({ text: 'Barang yang dibeli akan otomatis tersinkronisasi saat Anda masuk ke Roblox' })
+                    .setTimestamp();
+
+                return interaction.editReply({ embeds: [embedSuccess] });
             }
 
-            // C. Khusus Item "Langsung Pakai" (Opsional, misal XP instan)
-            let extraMsg = "";
-            if (itemToBuy.id === 'kopi') {
-                user.xp += (50 * amount); // Langsung nambah XP
-                // Hapus item dari inventory karena langsung diminum (opsional logic)
-                // user.inventory.pop(); 
-                extraMsg = `\n🆙 **+${50 * amount} XP** langsung masuk ke tubuhmu!`;
-            }
-
-            await user.save();
-
-            const embedSuccess = new EmbedBuilder()
-                .setColor(0xF1C40F)
-                .setTitle('✅ PEMBELIAN BERHASIL')
-                .setDescription(`Kamu membeli **${amount}x ${itemToBuy.name}**\nTotal Bayar: **${totalPrice} Gold**${extraMsg}`)
-                .setFooter({ text: `Sisa Saldo: ${user.gold} Gold | Cek tas: !tas` });
-
-            return message.reply({ embeds: [embedSuccess] });
+        } catch (error) {
+            console.error("Kesalahan Sistem Koperasi Amamiya:", error);
+            await interaction.editReply("❌ **Sistem Gagal:** Terjadi anomali saat menghubungi pangkalan data ekonomi.");
         }
     },
 };
