@@ -37,6 +37,11 @@ module.exports = {
             }
 
             const itemData = user.inventory[itemIndex];
+
+            // 2. Validasi Platform (Mencegah pemakaian item Roblox di Discord)
+            // Jika Anda belum sempat membuat MongoDB Item, kode ini menggunakan fallback array sementara
+            const robloxOnly = ["highspeeddrill", "kaca_mulut", "jas_lab", "sonde_half", "viewer_radiograf", "medical_tablet"];
+            let isRobloxPlatform = robloxOnly.includes(itemData.itemId.toLowerCase());
             
             // Coba ambil dari DB Item jika sudah ada
             const itemDef = await Item.findOne({ itemId: itemData.itemId });
