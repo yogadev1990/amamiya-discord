@@ -1,57 +1,69 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 
 module.exports = {
-    name: 'rules',
-    description: 'Post rules server dengan tombol verifikasi',
-    async execute(message, args) {
-        // Cek Admin
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return message.reply('❌ Hussh, ini menu admin.');
-        }
+    data: new SlashCommandBuilder()
+        .setName('rules')
+        .setDescription('Mengirimkan panel Tata Tertib & tombol verifikasi (Khusus Admin)')
+        // Mutlak: Hanya user dengan hak Administrator yang bisa melihat/memakai command ini
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+    async execute(interaction) {
+        // Karena ini mengirimkan panel permanen ke channel, kita tidak membalas (reply) langsung ke command,
+        // melainkan mengirim pesan terpisah ke channel, lalu membalas command dengan mode Ephemeral.
 
         const embedRules = new EmbedBuilder()
-            .setColor(0xFF0000) // Merah Tegas
-            .setTitle('📜 TATA TERTIB & VERIFIKASI')
-            .setDescription(`
-Selamat datang! Server ini adalah wadah untuk Studi Kedokteran Gigi, Riset AI, dan Komunitas Mahasiswa. Demi kenyamanan bersama dan kelancaran server, harap patuhi aturan berikut:
+            .setColor('#E74C3C') // Merah Tegas
+            .setTitle('📜 TATA TERTIB & VERIFIKASI KLINIS')
+            .setDescription(`Selamat datang! Peladen ini adalah fasilitas untuk Studi Kedokteran Gigi, Riset AI, dan Komunitas Mahasiswa. Demi kenyamanan dan kelancaran akademik, harap patuhi protokol berikut:
 
-**:one: ETIKA & PERILAKU**
-- Saling Menghormati: Dilarang melakukan hate speech, rasisme, atau bullying. Kita di sini calon tenaga medis/intelektual, tolong jaga sikap.
-- No Drama: Selesaikan masalah pribadi via DM. Jangan bawa keributan ke public chat.
-- Bahasa: Gunakan bahasa Indonesia/Inggris yang baik. Boleh santai/gas, tapi tahu tempat.
+**1️⃣ ETIKA & PERILAKU**
+• **Saling Menghormati:** Dilarang melakukan *hate speech*, rasisme, atau *bullying*. Kita adalah calon tenaga medis dan intelektual, jaga etika profesi Anda.
+• **No Drama:** Selesaikan masalah personal melalui *Direct Message* (DM). Dilarang memicu keributan di ruang publik.
+• **Bahasa:** Gunakan bahasa yang pantas. Boleh santai, tetapi harus tahu tempat dan situasi.
 
-**:two: KONTEN MEDIS & KLINIS (Penting!) :tooth:**
-- NSFW vs Medis: Foto klinis (darah, operasi, luka) DIPERBOLEHKAN hanya untuk tujuan edukasi.
-- Privasi Pasien: DILARANG KERAS menyebarkan identitas pasien (Wajah tanpa sensor, Nama Asli, NIK, Alamat) di channel manapun, termasuk saat menggunakan fitur !scan atau !tanya.
+**2️⃣ KONTEN MEDIS & KLINIS 🦷**
+• **NSFW vs Medis:** Foto klinis (darah, luka operasi, anatomi) **DIPERBOLEHKAN** secara mutlak hanya untuk tujuan edukasi dan konsultasi kasus.
+• **Privasi Pasien:** **DILARANG KERAS** menyebarkan identitas pasien (Wajah tanpa sensor, Nama Asli, NIK, Alamat) di kanal mana pun, termasuk saat menggunakan modul `/ask` untuk analisis radiograf.
 
-**:three: PENGGUNAAN BOT  :robot:**
-- No Spamming: Jangan spam command secara berlebihan dalam waktu singkat, beri jeda 10-30 detik.
-- Bug & Exploit: Jika menemukan bug (misal: Gold nambah sendiri, jawaban ngawur), lapor ke @Revanda. Jangan dimanfaatkan (exploit) untuk keuntungan pribadi.
-- Fitur Menfess: Gunakan \`!menfess\` dengan bijak. Dilarang mengirim ujaran kebencian, fitnah, atau doxing lewat bot anonim. Admin bisa melacak pengirim jika ada pelanggaran hukum.
+**3️⃣ PENGGUNAAN SISTEM AI 🤖**
+• **No Spamming:** Sistem memiliki *cooldown* dan pemantauan limit API. Jangan melakukan *spamming* perintah berturut-turut.
+• **Bug & Exploit:** Jika menemukan anomali (misal: celah menggandakan *Gold* atau *XP*), segera laporkan ke **@Revanda**. Dilarang mengeksploitasi kelemahan sistem untuk keuntungan pribadi.
+• **Fitur Menfess:** Gunakan perintah \`/menfess\` dengan bijak. Dilarang mengirim ujaran kebencian, fitnah, atau *doxing* melalui modul anonim. Log forensik admin dapat melacak identitas pengirim jika terjadi pelanggaran hukum.
 
-**:four: AKADEMIK & INTEGRITAS :books:**
-- Anti Plagiarisme: Fitur \`!skripsi\`, \`!para\`, dan \`!riset\` adalah alat bantu brainstorming. Dilarang copy-paste mentah-mentah untuk tugas akhir. Segala bentuk plagiasi di kampus adalah tanggung jawab masing-masing user.
-- Sharing Materi: Boleh share PDF/Ebook, tapi pastikan itu legal atau "kalangan sendiri".
+**4️⃣ AKADEMIK & INTEGRITAS 📚**
+• **Anti Plagiarisme:** Modul AI Amamiya dirancang sebagai alat bantu *brainstorming* dan ringkasan. **Dilarang** *copy-paste* mentah-mentah untuk Tugas Akhir/Skripsi. Segala bentuk plagiasi adalah tanggung jawab Anda sendiri.
+• **Sharing Materi:** Modul \`/perpus\` dan berbagi *file* PDF/Jurnal diperbolehkan selama berstatus "untuk kalangan sendiri" (tidak untuk dikomersialkan).
 
-**:five: SANKSI :hammer:**
-- Pelanggaran Ringan: Teguran (Warn) / Timeout 1 Jam.
-- Pelanggaran Sedang: Timeout 24 Jam / Reset XP & Gold Bot.
-- Pelanggaran Berat: Kick / Ban Permanen.
+**5️⃣ PROTOKOL SANKSI ⚖️**
+• **Pelanggaran Ringan:** Teguran Peringatan / *Timeout* 1 Jam.
+• **Pelanggaran Sedang:** *Timeout* 24 Jam / Penghapusan seluruh *XP* & *Gold* (Pemotongan Aset).
+• **Pelanggaran Berat:** Pemblokiran Akses Permanen (*Ban*).
 
-Setuju dengan aturan di atas? Klik reaksi :white_check_mark: di bawah ini untuk membuka akses ke seluruh channel.
-            `)
-            .setThumbnail(message.guild.iconURL())
-            .setFooter({ text: 'Amamiya KG UNSRI' });
+Apakah Anda memahami dan menyetujui seluruh protokol di atas?
+**Klik tombol ✅ di bawah ini untuk memverifikasi identitas Anda dan membuka akses penuh ke seluruh fasilitas peladen.**`)
+            .setFooter({ 
+                text: 'Sistem Keamanan & Verifikasi Amamiya • Universitas Sriwijaya',
+                iconURL: interaction.client.user.displayAvatarURL()
+            });
+            // Hapus baris setThumbnail agar teks rapi di layar HP
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId('verify_agree') // ID Unik
+                .setCustomId('verify_agree') 
                 .setLabel('Saya Setuju & Verifikasi')
                 .setEmoji('✅')
                 .setStyle(ButtonStyle.Success)
         );
 
-        await message.channel.send({ embeds: [embedRules], components: [row] });
-        await message.delete();
+        try {
+            // 1. Kirim panel Rules ke channel tempat command ini diketik
+            await interaction.channel.send({ embeds: [embedRules], components: [row] });
+
+            // 2. Balas interaksi admin agar Discord tidak mengira bot error (Ephemeral = rahasia)
+            await interaction.reply({ content: '✅ Panel Tata Tertib berhasil dipublikasikan di kanal ini.', ephemeral: true });
+        } catch (error) {
+            console.error("Gagal mengirim panel rules:", error);
+            await interaction.reply({ content: '❌ Terjadi kesalahan saat mencoba memublikasikan panel.', ephemeral: true });
+        }
     },
 };
