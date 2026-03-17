@@ -5,7 +5,7 @@ const {
     ButtonStyle,
     ComponentType
 } = require('discord.js');
-const GeminiAi = require('../../../shared/utils/geminiHelper');
+const GeminiAi = require('../../shared/utils/geminiHelper');
 const User = require('../../../shared/models/User');
 
 // Tambahkan session lock global di luar module.exports

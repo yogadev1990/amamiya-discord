@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const GeminiAi = require('../../../shared/utils/geminiHelper');
+const GeminiAi = require('../../shared/utils/geminiHelper');
 
 module.exports = {
     data: new SlashCommandBuilder()

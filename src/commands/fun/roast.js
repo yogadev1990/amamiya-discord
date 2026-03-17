@@ -1,4 +1,4 @@
-const GeminiAi = require('../../../shared/utils/geminiHelper');
+const GeminiAi = require('../../shared/utils/geminiHelper');
 
 module.exports = {
     name: 'roast',

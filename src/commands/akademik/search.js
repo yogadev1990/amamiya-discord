@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const axios = require('axios');
-const GeminiAi = require('../../../shared/utils/geminiHelper');
+const GeminiAi = require('../../shared/utils/geminiHelper');
 
 module.exports = {
     data: new SlashCommandBuilder()
