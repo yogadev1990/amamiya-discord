@@ -2,7 +2,7 @@ const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const { setupSocketHandlers } = require('./src/sockets/socketHandler'); 
+const { setupSocketHandlers } = require('../sockets/socketHandler'); 
 
 const app = express();
 const server = createServer(app);
@@ -15,7 +15,7 @@ const io = new Server(server, {
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/materi', express.static(path.join(__dirname, 'materi')));
+app.use('/materi', express.static(path.join(__dirname, '../../materi')));
 
 function startWebServer() {
     const PORT = process.env.PORT || 3000;

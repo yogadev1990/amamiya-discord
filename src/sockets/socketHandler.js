@@ -1,5 +1,5 @@
 const { GeminiClient } = require('./geminiClient');
-const User = require('../models/User'); 
+const User = require('../shared/models/User'); 
 
 function setupSocketHandlers(io, apiKey) {
     io.on('connection', async (socket) => {

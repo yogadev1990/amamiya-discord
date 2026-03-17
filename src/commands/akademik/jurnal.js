@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
-const GeminiAi = require('../../utils/geminiHelper');
+const GeminiAi = require('../../../shared/utils/geminiHelper');
 
 // --- FUNGSI HELPER: API PUBMED ---
 async function fetchPubMed(query, tahunAwal, tahunAkhir) {

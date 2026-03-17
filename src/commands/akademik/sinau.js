@@ -10,8 +10,8 @@ const path = require("path");
 const { fromPath } = require("pdf2pic");
 
 // Database Models (Asumsi tetap dipakai untuk manajemen profil & state buku)
-const User = require('../../models/User');
-const Notebook = require('../../models/Notebook');
+const User = require('../../../shared/models/User');
+const Notebook = require('../../../shared/models/Notebook');
 
 // --- KONFIGURASI ---
 const STORAGE_PATH = "/materi"; // Menggunakan volume mount

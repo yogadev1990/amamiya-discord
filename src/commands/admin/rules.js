@@ -23,7 +23,7 @@ module.exports = {
 
 **2️⃣ KONTEN MEDIS & KLINIS 🦷**
 • **NSFW vs Medis:** Foto klinis (darah, luka operasi, anatomi) **DIPERBOLEHKAN** secara mutlak hanya untuk tujuan edukasi dan konsultasi kasus.
-• **Privasi Pasien:** **DILARANG KERAS** menyebarkan identitas pasien (Wajah tanpa sensor, Nama Asli, NIK, Alamat) di kanal mana pun, termasuk saat menggunakan modul `/ask` untuk analisis radiograf.
+• **Privasi Pasien:** **DILARANG KERAS** menyebarkan identitas pasien (Wajah tanpa sensor, Nama Asli, NIK, Alamat) di kanal mana pun, termasuk saat menggunakan modul \`/ask\` untuk analisis radiograf.
 
 **3️⃣ PENGGUNAAN SISTEM AI 🤖**
 • **No Spamming:** Sistem memiliki *cooldown* dan pemantauan limit API. Jangan melakukan *spamming* perintah berturut-turut.

@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { searchSkripsi } = require('../../utils/milvusHelper');
-const GeminiAi = require('../../utils/geminiHelper');
+const { searchSkripsi } = require('../../../shared/utils/milvusHelper');
+const GeminiAi = require('../../../shared/utils/geminiHelper');
 
 module.exports = {
     data: new SlashCommandBuilder()

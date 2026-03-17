@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const User = require('../../models/User'); // Import model User buat kasih hadiah XP
+const User = require('../../../shared/models/User'); // Import model User buat kasih hadiah XP
 
 // --- BANK SOAL ---
 // Kamu bisa tambah link gambar dari Google/Discord/Imgur di sini

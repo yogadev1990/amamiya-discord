@@ -13,9 +13,9 @@ const prism = require('prism-media');
 const playdl = require('play-dl');
 const mongoose = require('mongoose');
 const path = require('path');
-const User = require('./models/User');
+const User = require('../../shared/models/User');
 
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+require('dotenv').config({ path: path.join(__dirname, '../../../.env') });
 /* =======================
    SISTEM ANTI-BLOKIR YOUTUBE
 ======================= */

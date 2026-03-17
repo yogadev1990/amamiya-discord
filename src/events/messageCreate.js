@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
-const User = require('../models/User'); // Pastikan path akurat
+const GeminiAi = require('../shared/utils/geminiHelper');
+const User = require('../shared/models/User'); // Pastikan path akurat
 
 const talkCooldown = new Set(); 
 
