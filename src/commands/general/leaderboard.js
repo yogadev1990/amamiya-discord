@@ -37,7 +37,7 @@ module.exports = {
             // 3. Render Antarmuka (Embed)
             const embed = new EmbedBuilder()
                 .setColor('#F1C40F') // Emas Akademik
-                .setTitle('🏆 Papan Peringkat Akademik FKG')
+                .setTitle('🏆 Papan Peringkat Akademik KG')
                 .setDescription(`Berikut adalah daftar 10 mahasiswa dengan akumulasi *Experience Point* (XP) dan jam terbang tertinggi di server ini:\n\n${leaderboardString}`)
                 .setThumbnail('https://cdn-icons-png.flaticon.com/512/3112/3112946.png') // Ikon piala
                 .setFooter({ 

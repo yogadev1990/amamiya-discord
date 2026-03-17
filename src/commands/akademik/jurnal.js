@@ -1,13 +1,44 @@
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
-const GeminiAi = require('../../shared/utils/geminiHelper');
+const { GoogleGenAI } = require('@google/genai');
+
+// --- FUNGSI AI TERISOLASI (STATELESS) ---
+
+async function generateOptimizedQuery(rawTopic) {
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const prompt = `Tugasmu adalah merakit Advanced Boolean Query untuk pencarian jurnal kedokteran gigi (PubMed/Google Scholar). 
+Topik: "${rawTopic}"
+Aturan Mutlak:
+1. Gunakan bahasa Inggris medis yang standar.
+2. Gunakan operator (AND, OR, NOT) dan tanda kutip ("") dengan presisi tinggi.
+3. Kembalikan HANYA format JSON. Dilarang memberikan teks atau penjelasan lain.`;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                // Fitur mutlak untuk memaksa AI mengembalikan data dalam format JSON murni
+                responseMimeType: "application/json", 
+            }
+        });
+
+        // Karena responseMimeType aktif, kita bisa langsung mem-parsing teksnya menjadi objek JSON
+        const data = JSON.parse(response.text);
+        
+        // Asumsi AI mengembalikan format: {"query": "(\"Dental Caries\" OR \"Tooth Decay\") AND \"Children\""}
+        // Jika format key berbeda, kita ambil nilai pertama dari objek tersebut
+        return data.query || Object.values(data)[0];
+    } catch (error) {
+        console.error("AI Query Gen Error:", error);
+        return rawTopik; // Fallback ke topik asli jika AI gagal
+    }
+}
 
 // --- FUNGSI HELPER: API PUBMED ---
 async function fetchPubMed(query, tahunAwal, tahunAkhir) {
     try {
         let dateFilter = "";
-        
-        // Format filter tanggal untuk NCBI E-utilities
         if (tahunAwal || tahunAkhir) {
             const min = tahunAwal || 1900;
             const max = tahunAkhir || new Date().getFullYear();
@@ -18,7 +49,7 @@ async function fetchPubMed(query, tahunAwal, tahunAkhir) {
         const searchRes = await axios.get(searchUrl);
         const ids = searchRes.data.esearchresult.idlist;
         
-        if (!ids || ids.length === 0) return "*Tidak ada literatur PubMed yang ditemukan untuk kueri dan rentang tahun ini.*";
+        if (!ids || ids.length === 0) return null; // Mengembalikan null agar bisa ditangkap oleh sistem Fallback
 
         const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${ids.join(',')}&retmode=json`;
         const summaryRes = await axios.get(summaryUrl);
@@ -28,75 +59,28 @@ async function fetchPubMed(query, tahunAwal, tahunAkhir) {
         ids.forEach((id, index) => {
             const title = summaries[id].title;
             const pubDate = summaries[id].pubdate || 'N/A';
-            resultText += `**${index + 1}.** [${title}](https://pubmed.ncbi.nlm.nih.gov/${id}/) (${pubDate})\n`;
+            resultText += `**${index + 1}.** [${title}](https://pubmed.ncbi.nlm.nih.gov/${id}/) (${pubDate})\n\n`;
         });
-        return resultText;
+        return resultText.trim();
     } catch (error) {
         console.error("PubMed API Error:", error);
-        return "*Gagal mengambil pratinjau data dari PubMed.*";
+        return null;
     }
-}
-
-// --- FUNGSI HELPER: TAMPILKAN HASIL ---
-async function prosesPencarian(interaction, rawTopik, query, isAI, tahunAwal, tahunAkhir) {
-    const queryEncoded = encodeURIComponent(query);
-    const currentYear = new Date().getFullYear();
-
-    // 1. Siapkan URL Dasar
-    let linkScholar = `https://scholar.google.com/scholar?q=${queryEncoded}`;
-    let linkPubMed = `https://pubmed.ncbi.nlm.nih.gov/?term=${queryEncoded}`;
-    let linkGaruda = `https://garuda.kemdikbud.go.id/documents?q=${encodeURIComponent(rawTopik)}`;
-
-    // 2. Modifikasi URL jika ada filter tahun
-    let infoTahun = "Semua Waktu";
-    if (tahunAwal || tahunAkhir) {
-        const min = tahunAwal || 1900;
-        const max = tahunAkhir || currentYear;
-        infoTahun = `${min} - ${max}`;
-        
-        // Inject parameter tahun ke URL
-        linkScholar += `&as_ylo=${min}&as_yhi=${max}`;
-        linkPubMed += `&filter=years.${min}-${max}`;
-        // Catatan: Portal Garuda tidak mendukung parameter URL filter tahun yang simpel, jadi dilewati.
-    }
-
-    // 3. Tarik Preview PubMed
-    const pubMedPreview = await fetchPubMed(query, tahunAwal, tahunAkhir);
-
-    // 4. Bangun UI
-    const row = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder().setLabel('Buka di Scholar').setStyle(ButtonStyle.Link).setURL(linkScholar),
-            new ButtonBuilder().setLabel('Buka di PubMed').setStyle(ButtonStyle.Link).setURL(linkPubMed),
-            new ButtonBuilder().setLabel('Buka di Garuda').setStyle(ButtonStyle.Link).setURL(linkGaruda)
-        );
-
-    const embed = new EmbedBuilder()
-        .setColor(0x00A8FF)
-        .setTitle(`📚 Hasil Pencarian Jurnal`)
-        .addFields(
-            { name: 'Topik Asli', value: `\`${rawTopik}\``, inline: true },
-            { name: 'Rentang Tahun', value: `\`${infoTahun}\``, inline: true }
-        )
-        .setDescription(`**Query yang digunakan:**\n\`${query}\`\n\n**📑 Top 3 Literatur PubMed:**\n${pubMedPreview}`)
-        .setFooter({ text: isAI ? 'Query dioptimalkan oleh Amamiya AI' : 'Pencarian langsung (Raw)' });
-
-    await interaction.editReply({ content: '', embeds: [embed], components: [row] });
 }
 
 // --- MAIN MODULE ---
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('jurnal')
-        .setDescription('Cari referensi jurnal ilmiah secara instan')
+        .setDescription('Cari referensi jurnal klinis dan riset medis secara instan')
         .addStringOption(option =>
             option.setName('topik')
-                .setDescription('Topik atau query pencarian jurnal')
+                .setDescription('Topik medis atau kueri pencarian')
                 .setRequired(true)
         )
         .addBooleanOption(option =>
             option.setName('bantu_ai')
-                .setDescription('Gunakan AI untuk merakit query spesifik (Boolean AND/OR)?')
+                .setDescription('Otomatis rakit Advanced Boolean Query menggunakan AI?')
                 .setRequired(false)
         )
         .addIntegerOption(option =>
@@ -111,80 +95,68 @@ module.exports = {
         ),
 
     async execute(interaction) {
+        await interaction.deferReply();
+
         const rawTopik = interaction.options.getString('topik');
         const gunakanAI = interaction.options.getBoolean('bantu_ai') || false;
         const tAwal = interaction.options.getInteger('tahun_awal');
         const tAkhir = interaction.options.getInteger('tahun_akhir');
+        const currentYear = new Date().getFullYear();
 
-        await interaction.deferReply();
-
+        // 1. Penentuan Kueri Pencarian
         let finalQuery = rawTopik;
+        let isOptimized = false;
 
-        // --- JIKA MENGGUNAKAN AI ---
         if (gunakanAI) {
-            try {
-                const prompt = `
-                Tugasmu adalah mengubah kalimat biasa menjadi query pencarian jurnal medis/kedokteran gigi tingkat lanjut (Advanced Boolean Query).
-                Kalimat user: "${rawTopik}"
-                
-                Aturan:
-                1. Gunakan bahasa Inggris (standar PubMed/Scholar).
-                2. Gunakan operator AND, OR, atau tanda kutip ("") jika perlu.
-                3. JANGAN berikan penjelasan apapun. Berikan HANYA teks query-nya saja.
-                `;
-
-                const aiResponse = await GeminiAi.run(interaction.user.id, interaction.user.username, prompt);
-                finalQuery = aiResponse.replace(/^"|"$/g, '').trim();
-
-                const confirmEmbed = new EmbedBuilder()
-                    .setColor(0xF39C12)
-                    .setTitle('⚙️ Review Query AI')
-                    .addFields(
-                        { name: 'Input Kamu', value: `\`${rawTopik}\`` },
-                        { name: 'Rekomendasi AI (Boolean)', value: `\`${finalQuery}\`` }
-                    )
-                    .setDescription('Apakah kamu ingin menggunakan query rekomendasi ini untuk mencari jurnal?');
-
-                const confirmButtons = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('acc_query').setLabel('Gunakan & Cari').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId('rej_query').setLabel('Batal').setStyle(ButtonStyle.Danger)
-                );
-
-                const msg = await interaction.editReply({ embeds: [confirmEmbed], components: [confirmButtons] });
-
-                const collector = msg.createMessageComponentCollector({ time: 60000 });
-
-                collector.on('collect', async i => {
-                    if (i.user.id !== interaction.user.id) {
-                        return i.reply({ content: '❌ Hanya pembuat perintah yang bisa menekan tombol ini.', ephemeral: true });
-                    }
-
-                    if (i.customId === 'rej_query') {
-                        return i.update({ content: '🛑 Pencarian dibatalkan oleh pengguna.', embeds: [], components: [] });
-                    }
-
-                    if (i.customId === 'acc_query') {
-                        await i.deferUpdate();
-                        // Lempar data ke fungsi pencarian beserta filter tahunnya
-                        await prosesPencarian(interaction, rawTopik, finalQuery, true, tAwal, tAkhir);
-                    }
-                });
-
-                collector.on('end', collected => {
-                    if (collected.size === 0) {
-                        interaction.editReply({ content: '⏱️ Waktu konfirmasi habis. Silakan ulangi perintah.', embeds: [], components: [] }).catch(() => {});
-                    }
-                });
-
-                return;
-
-            } catch (error) {
-                console.error("AI Query Gen Error:", error);
-                return interaction.editReply('❌ Gagal mengoptimasi query dengan AI. Coba beberapa saat lagi atau matikan opsi `bantu_ai`.');
-            }
+            finalQuery = await generateOptimizedQuery(rawTopik);
+            isOptimized = (finalQuery !== rawTopik);
         }
 
-        // --- JIKA TANPA AI ---
-        await prosesPencarian(interaction, rawTopik, finalQuery, false, tAwal, tAkhir);
+        // 2. Persiapan Tautan (Links)
+        const queryEncoded = encodeURIComponent(finalQuery);
+        let linkScholar = `https://scholar.google.com/scholar?q=${queryEncoded}`;
+        let linkPubMed = `https://pubmed.ncbi.nlm.nih.gov/?term=${queryEncoded}`;
+        
+        let infoTahun = "Semua Waktu";
+        if (tAwal || tAkhir) {
+            const min = tAwal || 1900;
+            const max = tAkhir || currentYear;
+            infoTahun = `${min} - ${max}`;
+            linkScholar += `&as_ylo=${min}&as_yhi=${max}`;
+            linkPubMed += `&filter=years.${min}-${max}`;
+        }
+
+        // 3. Eksekusi Pencarian PubMed
+        const pubMedData = await fetchPubMed(finalQuery, tAwal, tAkhir);
+
+        // 4. Pembangunan Antarmuka Visual
+        const embed = new EmbedBuilder()
+            .addFields(
+                { name: 'Topik Asli', value: `\`${rawTopik}\``, inline: true },
+                { name: 'Rentang Tahun', value: `\`${infoTahun}\``, inline: true }
+            )
+            .setFooter({ text: isOptimized ? 'Kueri dioptimalkan secara otomatis oleh AI' : 'Pencarian Kueri Mentah (Raw)' })
+            .setTimestamp();
+
+        // --- SKENARIO A: PUBMED MENDAPATKAN HASIL ---
+        if (pubMedData) {
+            embed.setColor('#2ECC71') // Hijau Sukses
+                 .setTitle('📚 Literatur Medis Ditemukan')
+                 .setDescription(`**Kueri Pencarian:**\n\`\`\`${finalQuery}\`\`\`\n**📑 Top 3 PubMed:**\n${pubMedData}`);
+        } 
+        // --- SKENARIO B: PUBMED KOSONG (FALLBACK KE SCHOLAR) ---
+        else {
+            embed.setColor('#E74C3C') // Merah Peringatan
+                 .setTitle('⚠️ PubMed Nihil / Tidak Ditemukan')
+                 .setDescription(`Sistem tidak menemukan artikel di dalam pangkalan data PubMed untuk kueri ini.\n\n**Tindakan Disarankan:**\nSilakan salin (*copy*) kueri yang telah dirakit di bawah ini dan cari secara manual di pangkalan data yang lebih luas seperti **Google Scholar**:\n\`\`\`${finalQuery}\`\`\``);
+        }
+
+        // 5. Perakitan Tombol Eksternal
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setLabel('Buka di Google Scholar').setStyle(ButtonStyle.Link).setURL(linkScholar),
+            new ButtonBuilder().setLabel('Buka di PubMed').setStyle(ButtonStyle.Link).setURL(linkPubMed)
+        );
+
+        await interaction.editReply({ embeds: [embed], components: [row] });
     },
 };
