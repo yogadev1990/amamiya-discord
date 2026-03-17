@@ -113,10 +113,21 @@ module.exports = {
         }
 
         // 2. Persiapan Tautan (Links)
-        const queryEncoded = encodeURIComponent(finalQuery);
+// 2. Persiapan Tautan (Links) dengan Proteksi Discord API
+        let queryEncoded = encodeURIComponent(finalQuery);
         let linkScholar = `https://scholar.google.com/scholar?q=${queryEncoded}`;
         let linkPubMed = `https://pubmed.ncbi.nlm.nih.gov/?term=${queryEncoded}`;
         
+        // --- PROTEKSI MUTLAK LIMIT 512 KARAKTER DISCORD ---
+        let isUrlCapped = false;
+        if (linkScholar.length > 500 || linkPubMed.length > 500) {
+            // Jika melebihi batas, URL tombol dikembalikan ke topik mentah
+            const rawEncoded = encodeURIComponent(rawTopik);
+            linkScholar = `https://scholar.google.com/scholar?q=${rawEncoded}`;
+            linkPubMed = `https://pubmed.ncbi.nlm.nih.gov/?term=${rawEncoded}`;
+            isUrlCapped = true;
+        }
+
         let infoTahun = "Semua Waktu";
         if (tAwal || tAkhir) {
             const min = tAwal || 1900;
@@ -138,17 +149,20 @@ module.exports = {
             .setFooter({ text: isOptimized ? 'Kueri dioptimalkan secara otomatis oleh AI' : 'Pencarian Kueri Mentah (Raw)' })
             .setTimestamp();
 
+        // Tambahkan peringatan jika URL terpaksa dipotong oleh sistem
+        const warningText = isUrlCapped ? `\n\n⚠️ *Kueri AI terlalu panjang untuk tombol Discord. Tombol di bawah menggunakan topik asli. Salin kueri di atas secara manual untuk hasil maksimal.*` : "";
+
         // --- SKENARIO A: PUBMED MENDAPATKAN HASIL ---
         if (pubMedData) {
-            embed.setColor('#2ECC71') // Hijau Sukses
+            embed.setColor('#2ECC71')
                  .setTitle('📚 Literatur Medis Ditemukan')
-                 .setDescription(`**Kueri Pencarian:**\n\`\`\`${finalQuery}\`\`\`\n**📑 Top 3 PubMed:**\n${pubMedData}`);
+                 .setDescription(`**Kueri Pencarian:**\n\`\`\`${finalQuery}\`\`\`\n**📑 Top 3 PubMed:**\n${pubMedData}${warningText}`);
         } 
         // --- SKENARIO B: PUBMED KOSONG (FALLBACK KE SCHOLAR) ---
         else {
-            embed.setColor('#E74C3C') // Merah Peringatan
+            embed.setColor('#E74C3C')
                  .setTitle('⚠️ PubMed Nihil / Tidak Ditemukan')
-                 .setDescription(`Sistem tidak menemukan artikel di dalam pangkalan data PubMed untuk kueri ini.\n\n**Tindakan Disarankan:**\nSilakan salin (*copy*) kueri yang telah dirakit di bawah ini dan cari secara manual di pangkalan data yang lebih luas seperti **Google Scholar**:\n\`\`\`${finalQuery}\`\`\``);
+                 .setDescription(`Sistem tidak menemukan artikel di pangkalan data PubMed untuk kueri ini.\n\n**Tindakan Disarankan:**\nSilakan salin (*copy*) kueri yang telah dirakit di bawah ini dan cari secara manual di **Google Scholar**:\n\`\`\`${finalQuery}\`\`\`${warningText}`);
         }
 
         // 5. Perakitan Tombol Eksternal
