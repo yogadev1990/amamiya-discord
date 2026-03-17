@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const User = require('../../../shared/models/User');
+const User = require('../../shared/models/User');
 
 // --- DATABASE ITEM GACHA ---
 const itemsPool = {

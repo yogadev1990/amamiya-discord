@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const axios = require('axios'); 
-const User = require('../../../shared/models/User'); 
+const User = require('../../shared/models/User'); 
 
 module.exports = {
     data: new SlashCommandBuilder()

@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const User = require('../../../shared/models/User'); 
-const Item = require('../../../shared/models/Item'); // Model Item yang baru saja kita buat
+const User = require('../../shared/models/User'); 
+const Item = require('../../shared/models/Item'); // Model Item yang baru saja kita buat
 
 module.exports = {
     data: new SlashCommandBuilder()

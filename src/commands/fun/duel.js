@@ -6,7 +6,7 @@ const {
     ComponentType
 } = require('discord.js');
 const GeminiAi = require('../../shared/utils/geminiHelper');
-const User = require('../../../shared/models/User');
+const User = require('../../shared/models/User');
 
 // Tambahkan session lock global di luar module.exports
 const activeDuels = new Map();

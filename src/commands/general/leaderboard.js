@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const User = require('../../../shared/models/User'); // Pastikan path akurat
+const User = require('../../shared/models/User'); // Pastikan path akurat
 
 module.exports = {
     data: new SlashCommandBuilder()
