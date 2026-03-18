@@ -61,7 +61,7 @@ class GeminiAi {
       // 4. Generate Jawaban
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const systemInstruction = `
-        Kamu adalah Amamiya, asisten mahasiswa FKG.
+        Kamu adalah Amamiya, asisten mahasiswa KG.
         User saat ini: ${username} (Level ${user.level}).
         Gaya bicara: Ramah, logis, medis.
         Gunakan tools MCP jika relevan.

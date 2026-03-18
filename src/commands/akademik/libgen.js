@@ -1,12 +1,16 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
 module.exports = {
-    name: 'libgen',
-    description: 'Cari buku atau ebook di Library Genesis',
-    async execute(message, args) {
-        if (!args.length) return message.reply('Mau cari buku apa? Contoh: `!libgen Carranza Periodontology`');
-
-        const query = args.join(' ');
+    data: new SlashCommandBuilder()
+        .setName('libgen')
+        .setDescription('Cari buku atau ebook di Library Genesis')
+        .addStringOption(option => 
+            option.setName('kueri')
+                .setDescription('Judul buku yang ingin dicari (Contoh: Carranza Periodontology)')
+                .setRequired(true)
+        ),
+    async execute(interaction) {
+        const query = interaction.options.getString('kueri');
         const queryEncoded = encodeURIComponent(query);
 
         // Kita buat link pencarian ke beberapa mirror LibGen yang populer
@@ -27,6 +31,6 @@ module.exports = {
             .setDescription('Klik tombol di bawah untuk melihat hasil pencarian buku/ebook gratis.')
             .setFooter({ text: 'Gunakan dengan bijak untuk keperluan pendidikan.' });
 
-        await message.reply({ embeds: [embed], components: [row] });
+        await interaction.reply({ embeds: [embed], components: [row] });
     },
 };

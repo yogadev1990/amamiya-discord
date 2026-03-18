@@ -5,7 +5,7 @@ const Item = require('../../shared/models/Item'); // Model Item yang baru saja k
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('shop')
-        .setDescription('Koperasi Peralatan Medis FKG (Terintegrasi dengan Praktikum Roblox)')
+        .setDescription('Koperasi Peralatan Medis KG (Terintegrasi dengan Praktikum Roblox)')
         .addSubcommand(subcommand =>
             subcommand
                 .setName('list')
@@ -46,7 +46,7 @@ module.exports = {
                 const embedShop = new EmbedBuilder()
                     .setColor('#2ECC71') // Hijau Transaksi
                     .setTitle('🏪 KOPERASI MAHASISWA AMAMIYA')
-                    .setDescription('Selamat datang di Koperasi FKG. Semua peralatan yang Anda beli di sini akan otomatis masuk ke inventaris karakter Roblox Anda.\n\nGunakan perintah `/shop buy [item_id]` untuk membeli perlengkapan.')
+                    .setDescription('Selamat datang di Koperasi KG. Semua peralatan yang Anda beli di sini akan otomatis masuk ke inventaris karakter Roblox Anda.\n\nGunakan perintah `/shop buy [item_id]` untuk membeli perlengkapan.')
                     .setThumbnail('https://cdn-icons-png.flaticon.com/512/3081/3081986.png')
                     .setFooter({ text: 'Sistem Integrasi Ekonomi Amamiya' })
                     .setTimestamp();

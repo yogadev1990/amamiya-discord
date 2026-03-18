@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 const khodamList = [
     { nama: 'Sonde Bengkok', sifat: 'Suka mencari-cari kesalahan orang lain.' },
@@ -33,13 +33,14 @@ const khodamList = [
 ];
 
 module.exports = {
-    name: 'khodam',
-    description: 'Cek khodam dental yang bersemayam di dirimu',
-    async execute(message, args) {
+    data: new SlashCommandBuilder()
+        .setName('khodam')
+        .setDescription('Cek khodam dental yang bersemayam di dirimu'),
+    async execute(interaction) {
         // Algoritma Random berdasarkan Nama User (Biar konsisten hari ini)
         // Jadi kalau user cek berkali-kali hari ini, hasilnya sama.
         const today = new Date().getDate();
-        const input = message.author.id + today;
+        const input = interaction.user.id + today;
         let hash = 0;
         for (let i = 0; i < input.length; i++) {
             hash = input.charCodeAt(i) + ((hash << 5) - hash);
@@ -51,9 +52,9 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor(0x8E44AD)
             .setTitle('👻 Cek Khodam Dental')
-            .setDescription(`Di dalam diri **${message.author.username}**, bersemayam khodam:\n\n# **${khodam.nama}**\n\n*Sifat: ${khodam.sifat}*`)
+            .setDescription(`Di dalam diri **${interaction.user.username}**, bersemayam khodam:\n\n# **${khodam.nama}**\n\n*Sifat: ${khodam.sifat}*`)
             .setFooter({ text: 'Khodam ini bisa berubah setiap hari.' });
 
-        await message.reply({ embeds: [embed] });
+        await interaction.reply({ embeds: [embed] });
     },
 };

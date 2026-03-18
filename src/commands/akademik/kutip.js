@@ -1,25 +1,30 @@
+const { SlashCommandBuilder } = require('discord.js');
 const GeminiAi = require('../../shared/utils/geminiHelper');
 
 module.exports = {
-    name: 'kutip',
-    description: 'Buat daftar pustaka otomatis (Style: Vancouver/APA)',
-    async execute(message, args) {
-        // Cara pakai: !kutip [vancouver/apa] [judul/link/doi]
-        // Default ke Vancouver jika tidak disebut
-        
-        if (!args.length) return message.reply('Contoh: `!kutip vancouver Carranza Clinical Periodontology 13th edition`');
+    data: new SlashCommandBuilder()
+        .setName('kutip')
+        .setDescription('Buat daftar pustaka otomatis (Style: Vancouver/APA)')
+        .addStringOption(option => 
+            option.setName('sumber')
+                .setDescription('Judul/Link/DOI sumber')
+                .setRequired(true)
+        )
+        .addStringOption(option =>
+            option.setName('style')
+                .setDescription('Style sitasi')
+                .setRequired(false)
+                .addChoices(
+                    { name: 'Vancouver', value: 'vancouver' },
+                    { name: 'APA', value: 'apa' },
+                    { name: 'Harvard', value: 'harvard' }
+                )
+        ),
+    async execute(interaction) {
+        const style = interaction.options.getString('style') || 'vancouver';
+        const query = interaction.options.getString('sumber');
 
-        let style = args[0].toLowerCase();
-        let query = "";
-
-        if (['vancouver', 'apa', 'harvard'].includes(style)) {
-            query = args.slice(1).join(' ');
-        } else {
-            style = 'vancouver'; // Default FKG biasanya Vancouver
-            query = args.join(' ');
-        }
-
-        await message.channel.sendTyping();
+        await interaction.deferReply();
 
         const prompt = `
         Tolong buatkan sitasi/daftar pustaka untuk sumber berikut: "${query}"
@@ -33,10 +38,11 @@ module.exports = {
         `;
 
         try {
-            const hasil = await GeminiAi.run(message.author.id, message.author.username, prompt);
-            await message.reply(`📝 **Sitasi (${style.toUpperCase()}):**\n\`\`\`${hasil}\`\`\``);
+            const hasil = await GeminiAi.run(interaction.user.id, interaction.user.username, prompt);
+            await interaction.editReply(`📝 **Sitasi (${style.toUpperCase()}):**\n\`\`\`${hasil}\`\`\``);
         } catch (error) {
-            message.reply('Gagal membuat sitasi.');
+            console.error(error);
+            await interaction.editReply('❌ Gagal membuat sitasi.');
         }
     },
 };

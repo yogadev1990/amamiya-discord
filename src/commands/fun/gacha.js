@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../shared/models/User');
 
 // --- DATABASE ITEM GACHA ---
@@ -31,17 +31,32 @@ const itemsPool = {
 };
 
 module.exports = {
-    name: 'gacha',
-    description: 'Gacha berbayar (500 Gold/Pull)',
-    async execute(message, args) {
-        const subCommand = args[0]?.toLowerCase();
+    data: new SlashCommandBuilder()
+        .setName('gacha')
+        .setDescription('Gacha berbayar (500 Gold/Pull)')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('pull')
+                .setDescription('Gacha item dental (500 Gold)')
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('tas')
+                .setDescription('Lihat isi tas (inventory) kamu')
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('list')
+                .setDescription('Lihat daftar hadiah dan drop rate')
+        ),
+    async execute(interaction) {
+        const subCommand = interaction.options.getSubcommand();
 
-        // --- SUB-COMMAND 1: INVENTORY (Cek Tas) ---
-        if (subCommand === 'tas' || subCommand === 'bag') {
-            let user = await User.findOne({ userId: message.author.id });
+        if (subCommand === 'tas') {
+            let user = await User.findOne({ userId: interaction.user.id });
             
             if (!user || !user.inventory || user.inventory.length === 0) {
-                return message.reply('🎒 Tas kamu masih kosong. Cari uang dulu pakai `!daily`, lalu `!gacha`!');
+                return interaction.reply('🎒 Tas kamu masih kosong. Cari uang dulu pakai `/daily`, lalu `/gacha pull`!');
             }
 
             const counts = { Legendary: 0, Epic: 0, Rare: 0, Common: 0 };
@@ -55,18 +70,16 @@ module.exports = {
 
             const embedInv = new EmbedBuilder()
                 .setColor(0x9B59B6)
-                .setTitle(`🎒 Inventory: ${message.author.username}`)
+                .setTitle(`🎒 Inventory: ${interaction.user.username}`)
                 .setDescription(`Total Item: **${user.inventory.length}**\n\n**Statistik Koleksi:**\n🌟 Legendary: ${counts.Legendary}\n🟣 Epic: ${counts.Epic}\n🔵 Rare: ${counts.Rare}\n⚪ Common: ${counts.Common}\n\n**5 Item Terakhir Didapat:**\n${lastItems}`)
                 .setFooter({ text: 'Kumpulkan semua item Legendary!' });
 
-            return message.reply({ embeds: [embedInv] });
+            return interaction.reply({ embeds: [embedInv] });
         }
 
-        // --- SUB-COMMAND 2: LIST (Cek Daftar Hadiah) ---
-        // 👇 INI BAGIAN BARU YANG DITAMBAHKAN 👇
-        if (subCommand === 'list' || subCommand === 'pool' || subCommand === 'info') {
+        if (subCommand === 'list') {
             const embedList = new EmbedBuilder()
-                .setColor(0x3498DB) // Biru Info
+                .setColor(0x3498DB)
                 .setTitle('📜 DAFTAR HADIAH & DROP RATE')
                 .setDescription('Berikut adalah daftar item dental yang bisa kamu dapatkan dari mesin gacha ini.')
                 .addFields(
@@ -93,83 +106,74 @@ module.exports = {
                 )
                 .setFooter({ text: 'Biaya: 500 Gold per putaran. Good Luck!' });
 
-            return message.reply({ embeds: [embedList] });
-        }
-        // 👆 SELESAI BAGIAN BARU 👆
-
-
-        // --- LOGIKA UTAMA: GACHA PULL ---
-        
-        const HARGA_GACHA = 500; 
-
-        // 1. Ambil Data User
-        let user = await User.findOne({ userId: message.author.id });
-        if (!user) {
-             user = await User.create({ 
-                 userId: message.author.id, 
-                 username: message.author.username, 
-                 inventory: [],
-                 gold: 1000 
-             });
+            return interaction.reply({ embeds: [embedList] });
         }
 
-        // 2. CEK SALDO
-        const saldoUser = user.gold || 0;
-        if (saldoUser < HARGA_GACHA) {
-            return message.reply(`💸 **Uang Tidak Cukup!**\nBiaya Gacha: **${HARGA_GACHA} Gold**\nUangmu: **${saldoUser} Gold**\n\n*Tips: Ketik \`!daily\` atau \`!duel\` untuk cari uang.*`);
+        if (subCommand === 'pull') {
+            const HARGA_GACHA = 500; 
+
+            let user = await User.findOne({ userId: interaction.user.id });
+            if (!user) {
+                 user = await User.create({ 
+                     userId: interaction.user.id, 
+                     username: interaction.user.username, 
+                     inventory: [],
+                     gold: 1000 
+                 });
+            }
+
+            const saldoUser = user.gold || 0;
+            if (saldoUser < HARGA_GACHA) {
+                return interaction.reply(`💸 **Uang Tidak Cukup!**\nBiaya Gacha: **${HARGA_GACHA} Gold**\nUangmu: **${saldoUser} Gold**\n\n*Tips: Ketik \`/daily\` atau \`/duel\` untuk cari uang.*`);
+            }
+
+            user.gold -= HARGA_GACHA;
+
+            const rand = Math.random() * 100;
+            let rarity = '';
+            let color = 0x000000;
+            let pool = [];
+
+            if (rand < 2) { // 2%
+                rarity = 'Legendary';
+                color = 0xF1C40F; 
+                pool = itemsPool.legendary;
+            } else if (rand < 15) { // 13%
+                rarity = 'Epic';
+                color = 0x9B59B6; 
+                pool = itemsPool.epic;
+            } else if (rand < 50) { // 35%
+                rarity = 'Rare';
+                color = 0x3498DB; 
+                pool = itemsPool.rare;
+            } else { // 50%
+                rarity = 'Common';
+                color = 0xBDC3C7; 
+                pool = itemsPool.common;
+            }
+
+            const gainedItem = pool[Math.floor(Math.random() * pool.length)];
+
+            user.inventory.push({
+                itemId: gainedItem.id,
+                itemName: gainedItem.emoji + ' ' + gainedItem.name,
+                rarity: rarity
+            });
+            
+            await user.save(); 
+
+            const embedGacha = new EmbedBuilder()
+                .setColor(color)
+                .setTitle(`🎁 GACHA RESULT!`)
+                .setDescription(`Selamat **${interaction.user.username}**! Kamu mendapatkan:\n\n# ${gainedItem.emoji} **${gainedItem.name}**\n\n⭐ Rarity: **${rarity.toUpperCase()}**`)
+                .setThumbnail(interaction.user.displayAvatarURL())
+                .setFooter({ text: `Sisa Uang: ${user.gold} Gold | Cek list: /gacha list` });
+
+            if (rarity === 'Legendary') {
+                await interaction.channel.send(`🎉🎉 **WOAH! HOKI PARAH! ${interaction.user} DAPAT LEGENDARY!** 🎉🎉`);
+            }
+
+            await interaction.reply({ embeds: [embedGacha] });
         }
-
-        // 3. POTONG SALDO
-        user.gold -= HARGA_GACHA;
-
-        // 4. LOGIKA RANDOM (RNG)
-        const rand = Math.random() * 100; // 0 - 100
-        let rarity = '';
-        let color = 0x000000;
-        let pool = [];
-
-        if (rand < 2) { // 2%
-            rarity = 'Legendary';
-            color = 0xF1C40F; 
-            pool = itemsPool.legendary;
-        } else if (rand < 15) { // 13%
-            rarity = 'Epic';
-            color = 0x9B59B6; 
-            pool = itemsPool.epic;
-        } else if (rand < 50) { // 35%
-            rarity = 'Rare';
-            color = 0x3498DB; 
-            pool = itemsPool.rare;
-        } else { // 50%
-            rarity = 'Common';
-            color = 0xBDC3C7; 
-            pool = itemsPool.common;
-        }
-
-        // Pilih item acak
-        const gainedItem = pool[Math.floor(Math.random() * pool.length)];
-
-        // 5. SIMPAN DATABASE
-        user.inventory.push({
-            itemId: gainedItem.id,
-            itemName: gainedItem.emoji + ' ' + gainedItem.name,
-            rarity: rarity
-        });
-        
-        await user.save(); 
-
-        // 6. TAMPILKAN HASIL
-        const embedGacha = new EmbedBuilder()
-            .setColor(color)
-            .setTitle(`🎁 GACHA RESULT!`)
-            .setDescription(`Selamat **${message.author.username}**! Kamu mendapatkan:\n\n# ${gainedItem.emoji} **${gainedItem.name}**\n\n⭐ Rarity: **${rarity.toUpperCase()}**`)
-            .setThumbnail(message.author.displayAvatarURL())
-            .setFooter({ text: `Sisa Uang: ${user.gold} Gold | Cek list: !gacha list` });
-
-        if (rarity === 'Legendary') {
-            await message.channel.send(`🎉🎉 **WOAH! HOKI PARAH! ${message.author} DAPAT LEGENDARY!** 🎉🎉`);
-        }
-
-        await message.reply({ embeds: [embedGacha] });
     },
 };

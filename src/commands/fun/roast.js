@@ -1,13 +1,18 @@
+const { SlashCommandBuilder } = require('discord.js');
 const GeminiAi = require('../../shared/utils/geminiHelper');
 
 module.exports = {
-    name: 'roast',
-    description: 'Minta dospem killer me-review judul/alasan kamu (Sarkas Mode!)',
-    async execute(message, args) {
-        if (!args.length) return message.reply('Apa yang mau di-roast? Judul skripsi atau keluhanmu? Contoh: `!roast judulku pengaruh air wudhu terhadap karies`');
-
-        const inputUser = args.join(' ');
-        await message.channel.sendTyping();
+    data: new SlashCommandBuilder()
+        .setName('roast')
+        .setDescription('Minta dospem killer me-review judul/alasan kamu (Sarkas Mode!)')
+        .addStringOption(option => 
+            option.setName('topik')
+                .setDescription('Judul skripsi atau keluhanmu yang ingin di-roast')
+                .setRequired(true)
+        ),
+    async execute(interaction) {
+        const inputUser = interaction.options.getString('topik');
+        await interaction.deferReply();
 
         const prompt = `
         Mode: DOSEN PEMBIMBING KILLER & SARKAS.
@@ -24,10 +29,11 @@ module.exports = {
         `;
 
         try {
-            const hasil = await GeminiAi.run(message.author.id, message.author.username, prompt);
-            await message.reply(`🔥 **Dospem Killer:**\n"${hasil}"`);
+            const hasil = await GeminiAi.run(interaction.user.id, interaction.user.username, prompt);
+            await interaction.editReply(`🔥 **Dospem Killer:**\n"${hasil}"`);
         } catch (error) {
-            message.reply('Dospemnya lagi cuti (Error).');
+            console.error(error);
+            await interaction.editReply('❌ Dospemnya lagi cuti (Error).');
         }
     },
 };

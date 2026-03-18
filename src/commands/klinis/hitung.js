@@ -1,43 +1,66 @@
-const { EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 module.exports = {
-    name: 'hitung',
-    description: 'Kalkulator Indeks Klinis (OHI-S, DMF-T)',
-    async execute(message, args) {
-        const type = args[0]?.toLowerCase();
+    data: new SlashCommandBuilder()
+        .setName('hitung')
+        .setDescription('Kalkulator Indeks Klinis (OHI-S, DMF-T)')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('ohis')
+                .setDescription('Hitung Kebersihan Mulut (OHI-S)')
+                .addNumberOption(option => 
+                    option.setName('di')
+                        .setDescription('Nilai Debris Index (DI)')
+                        .setRequired(true)
+                )
+                .addNumberOption(option => 
+                    option.setName('ci')
+                        .setDescription('Nilai Calculus Index (CI)')
+                        .setRequired(true)
+                )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('dmft')
+                .setDescription('Hitung Indeks Karies (DMF-T)')
+                .addIntegerOption(option => 
+                    option.setName('d')
+                        .setDescription('Decayed (Gigi Berlubang)')
+                        .setRequired(true)
+                )
+                .addIntegerOption(option => 
+                    option.setName('m')
+                        .setDescription('Missing (Gigi Hilang)')
+                        .setRequired(true)
+                )
+                .addIntegerOption(option => 
+                    option.setName('f')
+                        .setDescription('Filled (Gigi Ditambal)')
+                        .setRequired(true)
+                )
+        ),
+    async execute(interaction) {
+        const type = interaction.options.getSubcommand();
 
-        if (!type) {
-            return message.reply('⚠️ Mau hitung apa? Pilihan:\n1. `!hitung ohis [DI] [CI]` (Kebersihan Mulut)\n2. `!hitung dmft [D] [M] [F]` (Indeks Karies)');
-        }
-
-        // --- SUB-COMMAND: OHI-S (Oral Hygiene Index Simplified) ---
         if (type === 'ohis') {
-            // Rumus: OHI-S = DI (Debris Index) + CI (Calculus Index)
-            // Input user: !hitung ohis 1.5 0.8
-            
-            if (args.length < 3) return message.reply('⚠️ Format: `!hitung ohis [Nilai DI] [Nilai CI]`\nContoh: `!hitung ohis 1.2 0.5`');
-
-            const di = parseFloat(args[1]);
-            const ci = parseFloat(args[2]);
-
-            if (isNaN(di) || isNaN(ci)) return message.reply('⚠️ Masukkan angka yang valid (gunakan titik untuk desimal).');
+            const di = interaction.options.getNumber('di');
+            const ci = interaction.options.getNumber('ci');
 
             const skor = di + ci;
             let kriteria = '';
             let warna = 0x00FF00;
 
-            // Kriteria OHI-S (Green & Vermillion)
             if (skor >= 0 && skor <= 1.2) {
                 kriteria = 'BAIK (Good)';
-                warna = 0x2ECC71; // Hijau
+                warna = 0x2ECC71; 
             } else if (skor >= 1.3 && skor <= 3.0) {
                 kriteria = 'SEDANG (Fair)';
-                warna = 0xF1C40F; // Kuning
+                warna = 0xF1C40F; 
             } else if (skor >= 3.1 && skor <= 6.0) {
                 kriteria = 'BURUK (Poor)';
-                warna = 0xE74C3C; // Merah
+                warna = 0xE74C3C; 
             } else {
-                return message.reply('⚠️ Skor tidak valid (Maksimal 6.0). Cek inputmu lagi.');
+                return interaction.reply({ content: '⚠️ Skor tidak valid (Maksimal 6.0). Cek inputmu lagi.', ephemeral: true });
             }
 
             const embed = new EmbedBuilder()
@@ -50,24 +73,17 @@ module.exports = {
                     { name: 'Interpretasi', value: `**${kriteria}**`, inline: false }
                 );
 
-            return message.channel.send({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed] });
         }
 
-        // --- SUB-COMMAND: DMF-T (Decayed, Missing, Filled Teeth) ---
         if (type === 'dmft') {
-            // Input: !hitung dmft 2 1 3 (D=2, M=1, F=3)
-            if (args.length < 4) return message.reply('⚠️ Format: `!hitung dmft [D] [M] [F]`\nContoh: `!hitung dmft 3 1 0`');
-
-            const d = parseInt(args[1]);
-            const m = parseInt(args[2]);
-            const f = parseInt(args[3]);
-
-            if (isNaN(d) || isNaN(m) || isNaN(f)) return message.reply('⚠️ Masukkan angka bulat.');
+            const d = interaction.options.getInteger('d');
+            const m = interaction.options.getInteger('m');
+            const f = interaction.options.getInteger('f');
 
             const total = d + m + f;
             let kategori = '';
             
-            // Kategori WHO (Sangat kasar, untuk referensi umum)
             if (total <= 1.1) kategori = 'Sangat Rendah';
             else if (total <= 2.6) kategori = 'Rendah';
             else if (total <= 4.4) kategori = 'Sedang';
@@ -86,7 +102,7 @@ module.exports = {
                     { name: 'Kategori WHO (Global)', value: `${kategori}`, inline: false }
                 );
 
-            return message.channel.send({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed] });
         }
     },
 };

@@ -1,14 +1,16 @@
-const { EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 module.exports = {
-    name: 'icd',
-    description: 'Cari kode ICD-10 untuk diagnosa gigi',
-    async execute(message, args) {
-        if (!args.length) {
-            return message.reply('Mau cari penyakit apa? Contoh: `!icd karies`');
-        }
-
-        const keyword = args.join(' ').toLowerCase();
+    data: new SlashCommandBuilder()
+        .setName('icd')
+        .setDescription('Cari kode ICD-10 untuk diagnosa gigi')
+        .addStringOption(option => 
+            option.setName('keyword')
+                .setDescription('Kata kunci penyakit / diagnosa')
+                .setRequired(true)
+        ),
+    async execute(interaction) {
+        const keyword = interaction.options.getString('keyword').toLowerCase();
 
         // Database Mini (Bisa ditambahkan nanti)
         const databaseICD = [
@@ -28,7 +30,7 @@ module.exports = {
         );
 
         if (hasilCari.length === 0) {
-            return message.reply(`❌ Tidak ditemukan diagnosa yang mengandung kata "**${keyword}**".`);
+            return interaction.reply(`❌ Tidak ditemukan diagnosa yang mengandung kata "**${keyword}**".`);
         }
 
         // Susun hasil pencarian ke dalam Embed
@@ -42,6 +44,6 @@ module.exports = {
             embed.addFields({ name: `${item.code} - ${item.name}`, value: item.desc });
         });
 
-        await message.channel.send({ embeds: [embed] });
+        await interaction.reply({ embeds: [embed] });
     },
 };

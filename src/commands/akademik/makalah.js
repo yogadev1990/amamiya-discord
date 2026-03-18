@@ -94,7 +94,7 @@ module.exports = {
                 });
             } catch (error) {
                 console.error("Kesalahan Unduhan File Multimodal:", error);
-                return interaction.editReply("❌ **Kegagalan Sistem:** Tidak dapat mengunduh atau mengekstrak lampiran dari peladen Discord.");
+                return interaction.editReply("❌ **Kegagalan Sistem:** Tidak dapat mengunduh atau mengekstrak lampiran dari server Discord.");
             }
         }
 
@@ -171,14 +171,14 @@ ${textToParse}`;
             });
 
             if (webhookResponse.data.status === "success") {
-                await interaction.followUp(`🎉 **Injeksi Dokumen Selesai!**\nMakalah Anda telah berhasil dicetak ke ruang kerja: ${webhookResponse.data.url}`);
+                await interaction.followUp(`🎉 **Pembuatan Makalah Selesai!**\nMakalah Anda telah berhasil dicetak ke Google Docs: ${webhookResponse.data.url}`);
             } else {
                 await interaction.followUp(`❌ **Kegagalan Sistem Google:**\n${webhookResponse.data.message || 'Pesan kesalahan tidak diketahui dari Google Apps Script'}`);
             }
 
         } catch (error) {
             console.error("Kesalahan Fatal Modul Makalah:", error);
-            await interaction.followUp("❌ **Fatal Error:** Amamiya gagal memproses dokumen atau terputus dari peladen Google Docs.");
+            await interaction.followUp("❌ **Fatal Error:** Amamiya gagal memproses dokumen atau terputus dari server Google Docs.");
         }
     },
 };

@@ -18,7 +18,7 @@ module.exports = {
         const robloxUsername = interaction.options.getString('username');
 
         try {
-            // 1. Eksekusi Pencarian Identitas ke Peladen Pusat Roblox
+            // 1. Eksekusi Pencarian Identitas ke server Pusat Roblox
             const userResponse = await axios.post('https://users.roblox.com/v1/usernames/users', {
                 usernames: [robloxUsername],
                 excludeBannedUsers: true
@@ -28,7 +28,7 @@ module.exports = {
 
             if (userData.length === 0) {
                 return interaction.editReply({ 
-                    content: `❌ **Akses Ditolak:** Username Roblox **${robloxUsername}** tidak ditemukan di peladen global.` 
+                    content: `❌ **Akses Ditolak:** Username Roblox **${robloxUsername}** tidak ditemukan di server global.` 
                 });
             }
 

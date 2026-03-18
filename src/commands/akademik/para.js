@@ -1,14 +1,19 @@
+const { SlashCommandBuilder } = require('discord.js');
 const GeminiAi = require('../../shared/utils/geminiHelper');
 
 module.exports = {
-    name: 'para',
-    description: 'Tulis ulang kalimat agar lolos plagiasi (Paraphraser)',
-    async execute(message, args) {
-        if (!args.length) return message.reply('Mana teksnya? Contoh: `!para Karies gigi adalah penyakit infeksi mikrobiologis...`');
+    data: new SlashCommandBuilder()
+        .setName('para')
+        .setDescription('Tulis ulang kalimat agar lolos plagiasi (Paraphraser)')
+        .addStringOption(option => 
+            option.setName('teks')
+                .setDescription('Teks yang ingin diparafrase')
+                .setRequired(true)
+        ),
+    async execute(interaction) {
+        const teksAsli = interaction.options.getString('teks');
 
-        const teksAsli = args.join(' ');
-
-        await message.channel.sendTyping();
+        await interaction.deferReply();
 
         const prompt = `
         Lakukan parafrase (tulis ulang) pada teks berikut agar:
@@ -23,10 +28,11 @@ module.exports = {
         `;
 
         try {
-            const hasil = await GeminiAi.run(message.author.id, message.author.username, prompt);
-            await message.reply(`✍️ **Hasil Parafrase:**\n${hasil}`);
+            const hasil = await GeminiAi.run(interaction.user.id, interaction.user.username, prompt);
+            await interaction.editReply(`✍️ **Hasil Parafrase:**\n${hasil}`);
         } catch (error) {
-            message.reply('Gagal memproses parafrase.');
+            console.error(error);
+            await interaction.editReply('❌ Gagal memproses parafrase.');
         }
     },
 };

@@ -1,14 +1,18 @@
+const { SlashCommandBuilder } = require('discord.js');
 const GeminiAi = require('../../shared/utils/geminiHelper');
 
 module.exports = {
-    name: 'kerangka',
-    description: 'Bantu buntu ide? Buat kerangka skripsi Bab 1-3 dari judulmu.',
-    async execute(message, args) {
-        if (!args.length) return message.reply('Mana judulnya? Contoh: `!kerangka Pengaruh Ekstrak Daun Sirih terhadap Streptococcus Mutans`');
-
-        const judul = args.join(' ');
-        await message.channel.sendTyping();
-        const msgLoading = await message.reply('🧠 Sedang menyusun kerangka berpikir... (Tunggu sebentar)');
+    data: new SlashCommandBuilder()
+        .setName('kerangka')
+        .setDescription('Bantu buntu ide? Buat kerangka skripsi Bab 1-3 dari judulmu.')
+        .addStringOption(option => 
+            option.setName('judul')
+                .setDescription('Judul skripsi')
+                .setRequired(true)
+        ),
+    async execute(interaction) {
+        const judul = interaction.options.getString('judul');
+        await interaction.deferReply();
 
         const prompt = `
         User adalah mahasiswa Kedokteran Gigi yang sedang menyusun skripsi.
@@ -36,22 +40,21 @@ module.exports = {
         `;
 
         try {
-            const hasil = await GeminiAi.run(message.author.id, message.author.username, prompt);
+            const hasil = await GeminiAi.run(interaction.user.id, interaction.user.username, prompt);
             
-            // Karena output mungkin panjang, kita split jika perlu (max 2000 char)
             if (hasil.length > 1900) {
                 const chunks = hasil.match(/[\s\S]{1,1900}/g) || [];
-                await msgLoading.edit(`📑 **Saran Kerangka Skripsi:**\n*Judul: ${judul}*`);
+                await interaction.editReply(`📑 **Saran Kerangka Skripsi:**\n*Judul: ${judul}*`);
                 for (const chunk of chunks) {
-                    await message.channel.send(chunk);
+                    await interaction.channel.send(chunk);
                 }
             } else {
-                await msgLoading.edit(`📑 **Saran Kerangka Skripsi:**\n*Judul: ${judul}*\n\n${hasil}`);
+                await interaction.editReply(`📑 **Saran Kerangka Skripsi:**\n*Judul: ${judul}*\n\n${hasil}`);
             }
 
         } catch (error) {
             console.error(error);
-            await msgLoading.edit('❌ Gagal menyusun kerangka. Gemini lagi buntu.');
+            await interaction.editReply('❌ Gagal menyusun kerangka. Gemini lagi buntu.');
         }
     },
 };

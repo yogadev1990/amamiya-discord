@@ -5,7 +5,7 @@ const GeminiAi = require('../../shared/utils/geminiHelper');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('skripsi')
-        .setDescription('Cari referensi dan cek kebaharuan skripsi FKG Unsri via Milvus')
+        .setDescription('Cari referensi dan cek kebaharuan skripsi KG Unsri via Milvus')
         .addStringOption(option =>
             option.setName('topik')
                 .setDescription('Ide judul atau topik skripsi (contoh: karies gigi anak)')
@@ -53,7 +53,7 @@ module.exports = {
             Bandingkan ide topik user dengan Data Riwayat Skripsi di atas. Berikan jawaban dengan format markdown persis seperti di bawah ini:
 
             **🔍 1. Analisis Kebaharuan (Novelty)**
-            (Jelaskan secara tajam apakah topik ini fresh, inovatif, atau sudah pasaran di FKG Unsri. Jangan basa-basi).
+            (Jelaskan secara tajam apakah topik ini fresh, inovatif, atau sudah pasaran di KG Unsri. Jangan basa-basi).
 
             **⚠️ 2. Tingkat Kemiripan Topik**
             (Sebutkan secara spesifik Judul, Penulis, dan Tahun dari skripsi database yang paling mendekati. Jika ide user persis sama dengan data lama, peringatkan dengan TEGAS potensi penolakan judul. Jika berbeda jauh, nyatakan aman).

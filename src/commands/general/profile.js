@@ -95,7 +95,7 @@ module.exports = {
         } catch (err) {
             console.error("Kesalahan Profil Sistem:", err);
             await interaction.editReply({
-                content: "❌ **Database Error:** Gagal memuat data profil KTM dari peladen MongoDB utama."
+                content: "❌ **Database Error:** Gagal memuat data profil KTM dari server MongoDB utama."
             });
         }
     },

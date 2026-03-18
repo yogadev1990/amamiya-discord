@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../shared/models/User'); // Import model User buat kasih hadiah XP
 
 // --- BANK SOAL ---
@@ -99,9 +99,10 @@ const bankSoal = [
 ];
 
 module.exports = {
-    name: 'tebakgambar',
-    description: 'Game tebak nama alat/diagnosa dari gambar',
-    async execute(message, args) {
+    data: new SlashCommandBuilder()
+        .setName('tebakgambar')
+        .setDescription('Game tebak nama alat/diagnosa dari gambar'),
+    async execute(interaction) {
         // 1. Pilih Soal Acak
         const soal = bankSoal[Math.floor(Math.random() * bankSoal.length)];
         
@@ -112,15 +113,14 @@ module.exports = {
             .setImage(soal.url)
             .setFooter({ text: `Clue: ${soal.clue}` });
 
-        await message.reply({ embeds: [embed] });
+        await interaction.reply({ embeds: [embed] });
 
         // 2. Buat Collector (Penyaring Pesan)
         // Kita tangkap pesan dari siapa saja di channel ini
         const filter = m => !m.author.bot; 
         
-        const collector = message.channel.createMessageComponentCollector({ time: 30000 }); // Salah logic, harusnya createMessageCollector
         // KOREKSI: Gunakan createMessageCollector untuk menangkap chat text
-        const msgCollector = message.channel.createMessageCollector({ filter, time: 30000 });
+        const msgCollector = interaction.channel.createMessageCollector({ filter, time: 30000 });
 
         let terjawab = false;
 
@@ -160,7 +160,7 @@ module.exports = {
                     .setDescription(`Sayang sekali tidak ada yang menjawab benar.\n\nJawabannya adalah: **${soal.jawaban[0].toUpperCase()}**`)
                     .setFooter({ text: `Clue: ${soal.clue}` });
                 
-                await message.channel.send({ embeds: [loseEmbed] });
+                await interaction.channel.send({ embeds: [loseEmbed] });
             }
         });
     },

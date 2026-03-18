@@ -2,8 +2,6 @@ const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Embed
 const axios = require('axios');
 const { GoogleGenAI } = require('@google/genai');
 
-// --- FUNGSI AI TERISOLASI (STATELESS) ---
-
 async function generateOptimizedQuery(rawTopic) {
     try {
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -24,16 +22,13 @@ Aturan Mutlak:
 
         const data = JSON.parse(response.text);
         
-        // Asumsi AI mengembalikan format: {"query": "(\"Dental Caries\" OR \"Tooth Decay\") AND \"Children\""}
-        // Jika format key berbeda, kita ambil nilai pertama dari objek tersebut
         return data.query || Object.values(data)[0];
     } catch (error) {
         console.error("AI Query Gen Error:", error);
-        return rawTopik; // Fallback ke topik asli jika AI gagal
+        return rawTopik;
     }
 }
 
-// --- FUNGSI HELPER: API PUBMED ---
 async function fetchPubMed(query, tahunAwal, tahunAkhir) {
     try {
         let dateFilter = "";
@@ -47,8 +42,8 @@ async function fetchPubMed(query, tahunAwal, tahunAkhir) {
         const searchRes = await axios.get(searchUrl);
         const ids = searchRes.data.esearchresult.idlist;
         
-        if (!ids || ids.length === 0) return null; // Mengembalikan null agar bisa ditangkap oleh sistem Fallback
-
+        if (!ids || ids.length === 0) return null; 
+        
         const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${ids.join(',')}&retmode=json`;
         const summaryRes = await axios.get(summaryUrl);
         const summaries = summaryRes.data.result;

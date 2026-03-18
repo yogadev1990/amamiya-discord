@@ -1,48 +1,50 @@
-const { EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 module.exports = {
-    name: 'dosis',
-    description: 'Hitung estimasi dosis obat anak (Amoxicillin/Paracetamol)',
-    async execute(message, args) {
-        // Cek input user. Format harus: !dosis [berat] [nama_obat]
-        if (args.length < 2) {
-            return message.reply('⚠️ Format salah. Gunakan: `!dosis [berat_kg] [nama_obat]`\nContoh: `!dosis 20 amoxicillin`');
-        }
+    data: new SlashCommandBuilder()
+        .setName('dosis')
+        .setDescription('Hitung estimasi dosis obat anak (Amoxicillin/Paracetamol)')
+        .addNumberOption(option => 
+            option.setName('berat')
+                .setDescription('Berat badan anak (kg)')
+                .setRequired(true)
+        )
+        .addStringOption(option => 
+            option.setName('obat')
+                .setDescription('Nama Obat')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Amoxicillin', value: 'amoxicillin' },
+                    { name: 'Paracetamol', value: 'paracetamol' }
+                )
+        ),
+    async execute(interaction) {
+        const berat = interaction.options.getNumber('berat');
+        const obat = interaction.options.getString('obat');
 
-        const berat = parseFloat(args[0]);
-        const obat = args[1].toLowerCase();
-
-        // Validasi berat badan
-        if (isNaN(berat) || berat <= 0) {
-            return message.reply('⚠️ Berat badan harus angka yang valid (kg).');
+        if (berat <= 0) {
+            return interaction.reply({ content: '⚠️ Berat badan harus lebih dari 0 kg.', ephemeral: true });
         }
 
         let hasil = '';
         let infoObat = '';
-        let warna = 0x00FF00; // Hijau
+        let warna = 0x00FF00;
 
-        // LOGIKA PERHITUNGAN
-        if (obat === 'amoxicillin' || obat === 'amox') {
-            // Rumus: 20-40 mg/kg/hari dibagi 3 dosis
+        if (obat === 'amoxicillin') {
             const minDosis = (20 * berat) / 3;
             const maxDosis = (40 * berat) / 3;
             infoObat = 'Amoxicillin (Antibiotik)';
             hasil = `Rentang dosis: **${Math.round(minDosis)}mg - ${Math.round(maxDosis)}mg**\nDiambil tiap 8 jam (3x sehari).`;
-            warna = 0x3498db; // Biru
+            warna = 0x3498db; 
         } 
-        else if (obat === 'paracetamol' || obat === 'pct') {
-            // Rumus: 10-15 mg/kg/dosis
+        else if (obat === 'paracetamol') {
             const minDosis = 10 * berat;
             const maxDosis = 15 * berat;
             infoObat = 'Paracetamol (Analgesik/Antipiretik)';
             hasil = `Dosis sekali minum: **${Math.round(minDosis)}mg - ${Math.round(maxDosis)}mg**\nDapat diulang tiap 4-6 jam (Maks 4-5x sehari).`;
-            warna = 0xe74c3c; // Merah
+            warna = 0xe74c3c; 
         } 
-        else {
-            return message.reply(`⚠️ Obat **${obat}** belum ada di database saya. Coba: amoxicillin atau paracetamol.`);
-        }
 
-        // BUAT TAMPILAN (EMBED)
         const embed = new EmbedBuilder()
             .setColor(warna)
             .setTitle(`💊 Kalkulator Dosis: ${infoObat}`)
@@ -52,6 +54,6 @@ module.exports = {
             )
             .setFooter({ text: '⚠️ Disclaimer: Hanya alat bantu belajar. Gunakan referensi medis resmi.' });
 
-        await message.channel.send({ embeds: [embed] });
+        await interaction.reply({ embeds: [embed] });
     },
 };

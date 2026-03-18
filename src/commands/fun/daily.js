@@ -1,13 +1,14 @@
-const { EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../../shared/models/User');
 
 module.exports = {
-    name: 'daily',
-    description: 'Absen harian untuk dapat gaji/uang saku',
-    async execute(message, args) {
-        let user = await User.findOne({ userId: message.author.id });
+    data: new SlashCommandBuilder()
+        .setName('daily')
+        .setDescription('Absen harian untuk dapat gaji/uang saku'),
+    async execute(interaction) {
+        let user = await User.findOne({ userId: interaction.user.id });
         if (!user) {
-            user = await User.create({ userId: message.author.id, username: message.author.username });
+            user = await User.create({ userId: interaction.user.id, username: interaction.user.username });
         }
 
         // Cek Cooldown (24 Jam)
@@ -20,7 +21,7 @@ module.exports = {
             const jam = Math.floor(sisaWaktu / (1000 * 60 * 60));
             const menit = Math.floor((sisaWaktu % (1000 * 60 * 60)) / (1000 * 60));
             
-            return message.reply(`🛑 **Sabar dong!** Uangnya cair lagi dalam **${jam} jam ${menit} menit**.`);
+            return interaction.reply(`🛑 **Sabar dong!** Uangnya cair lagi dalam **${jam} jam ${menit} menit**.`);
         }
 
         // Beri Hadiah (Random 500 - 1000 Gold)
@@ -36,6 +37,6 @@ module.exports = {
             .setDescription(`Kamu telah melakukan absen harian.\n\n➕ **${reward} Gold**\nTotal Uang: **${user.gold} Gold**`)
             .setFooter({ text: 'Gunakan uang ini buat Gacha ya!' });
 
-        message.reply({ embeds: [embed] });
+        await interaction.reply({ embeds: [embed] });
     },
 };
