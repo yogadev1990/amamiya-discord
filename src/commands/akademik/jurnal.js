@@ -18,12 +18,10 @@ Aturan Mutlak:
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
-                // Fitur mutlak untuk memaksa AI mengembalikan data dalam format JSON murni
                 responseMimeType: "application/json", 
             }
         });
 
-        // Karena responseMimeType aktif, kita bisa langsung mem-parsing teksnya menjadi objek JSON
         const data = JSON.parse(response.text);
         
         // Asumsi AI mengembalikan format: {"query": "(\"Dental Caries\" OR \"Tooth Decay\") AND \"Children\""}
