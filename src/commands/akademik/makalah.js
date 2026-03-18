@@ -164,7 +164,7 @@ ${textToParse}`;
             await interaction.editReply("✅ **Validasi Sukses!**\nSeluruh parameter makalah terpenuhi. Sistem sedang menginjeksi dokumen ke pangkalan data Google Docs...");
 
             // MUTLAK: PASTIKAN ANDA MENGGANTI URL INI DENGAN DEPLOYMENT WEBHOOK ANDA SENDIRI
-            const scriptUrl = "https://script.google.com/macros/s/AKfycbzbv6gvTcS5pUrl.../exec"; 
+            const scriptUrl = "https://script.google.com/macros/s/AKfycbzbv6gvTcS5pUTRZwJ7Q1i9ui65xITGMbcKJObrs7tOuOAtFLP2tphxNFDnqwlOcfNL/exec"; 
             
             const webhookResponse = await axios.post(scriptUrl, geminiData.payload, {
                 headers: { "Content-Type": "application/json" }
