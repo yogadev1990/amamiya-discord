@@ -105,29 +105,47 @@ module.exports = {
             isOptimized = (finalQuery !== rawTopik);
         }
 
-        // 2. Persiapan Tautan (Links)
-// 2. Persiapan Tautan (Links) dengan Proteksi Discord API
+        // 2. Persiapan Tautan (Links) dengan Proteksi Discord API
+        const MAX_URL_LENGTH = 512;
         let queryEncoded = encodeURIComponent(finalQuery);
         let linkScholar = `https://scholar.google.com/scholar?q=${queryEncoded}`;
         let linkPubMed = `https://pubmed.ncbi.nlm.nih.gov/?term=${queryEncoded}`;
-        
-        // --- PROTEKSI MUTLAK LIMIT 512 KARAKTER DISCORD ---
-        let isUrlCapped = false;
-        if (linkScholar.length > 500 || linkPubMed.length > 500) {
-            // Jika melebihi batas, URL tombol dikembalikan ke topik mentah
-            const rawEncoded = encodeURIComponent(rawTopik);
-            linkScholar = `https://scholar.google.com/scholar?q=${rawEncoded}`;
-            linkPubMed = `https://pubmed.ncbi.nlm.nih.gov/?term=${rawEncoded}`;
-            isUrlCapped = true;
-        }
 
         let infoTahun = "Semua Waktu";
+        let yearSuffixScholar = "";
+        let yearSuffixPubMed = "";
         if (tAwal || tAkhir) {
             const min = tAwal || 1900;
             const max = tAkhir || currentYear;
             infoTahun = `${min} - ${max}`;
-            linkScholar += `&as_ylo=${min}&as_yhi=${max}`;
-            linkPubMed += `&filter=years.${min}-${max}`;
+            yearSuffixScholar = `&as_ylo=${min}&as_yhi=${max}`;
+            yearSuffixPubMed = `&filter=years.${min}-${max}`;
+            linkScholar += yearSuffixScholar;
+            linkPubMed += yearSuffixPubMed;
+        }
+
+        // --- PROTEKSI MUTLAK LIMIT 512 KARAKTER DISCORD ---
+        let isUrlCapped = false;
+        if (linkScholar.length > MAX_URL_LENGTH || linkPubMed.length > MAX_URL_LENGTH) {
+            // Fallback 1: gunakan topik mentah (raw) tanpa kueri AI
+            const rawEncoded = encodeURIComponent(rawTopik);
+            linkScholar = `https://scholar.google.com/scholar?q=${rawEncoded}${yearSuffixScholar}`;
+            linkPubMed = `https://pubmed.ncbi.nlm.nih.gov/?term=${rawEncoded}${yearSuffixPubMed}`;
+            isUrlCapped = true;
+
+            // Fallback 2: jika topik mentah masih terlalu panjang, potong topik
+            if (linkScholar.length > MAX_URL_LENGTH || linkPubMed.length > MAX_URL_LENGTH) {
+                const scholarBase = `https://scholar.google.com/scholar?q=${yearSuffixScholar}`;
+                const pubmedBase = `https://pubmed.ncbi.nlm.nih.gov/?term=${yearSuffixPubMed}`;
+                // Hitung sisa karakter yang tersedia untuk query
+                const maxQueryLen = Math.min(
+                    MAX_URL_LENGTH - scholarBase.length,
+                    MAX_URL_LENGTH - pubmedBase.length
+                );
+                const truncatedEncoded = encodeURIComponent(rawTopik).slice(0, maxQueryLen);
+                linkScholar = `https://scholar.google.com/scholar?q=${truncatedEncoded}${yearSuffixScholar}`;
+                linkPubMed = `https://pubmed.ncbi.nlm.nih.gov/?term=${truncatedEncoded}${yearSuffixPubMed}`;
+            }
         }
 
         // 3. Eksekusi Pencarian PubMed
