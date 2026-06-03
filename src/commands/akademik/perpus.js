@@ -20,12 +20,12 @@ module.exports = {
     async execute(interaction) {
         const pilihanLayanan = interaction.options.getString('layanan');
 
-// --- OPSI 1: CALIBRE-WEB (Berdasarkan Rak Publik) ---
+        // --- OPSI 1: CALIBRE-WEB (Berdasarkan Rak Publik) ---
         if (pilihanLayanan === 'kavita') {
             const Database = require('better-sqlite3');
-            
+
             // Path menuju kedua database
-            const dbAppPath = '/calibre_web_config/app.db'; 
+            const dbAppPath = '/calibre_web_config/app.db';
             const dbCalibrePath = '/calibre_db/metadata.db';
 
             let groupedData = {};
@@ -34,13 +34,13 @@ module.exports = {
             try {
                 // Buka database Calibre-Web (app.db)
                 const db = new Database(dbAppPath, { readonly: true });
-                
+
                 // Tempelkan database utama Calibre agar bisa membaca judul buku
                 db.prepare(`ATTACH DATABASE '${dbCalibrePath}' AS metadata`).run();
-                
+
                 // Ekstrak data Rak Publik beserta isi bukunya (KUERI SESUAI SKEMA ASLI)
                 const rows = db.prepare(`
-                    SELECT s.name AS shelf_name, b.title AS book_title
+                    SELECT s.name AS shelf_name, b.title AS book_title, b.id AS book_id
                     FROM shelf s
                     JOIN book_shelf_link bsl ON s.id = bsl.shelf
                     JOIN metadata.books b ON bsl.book_id = b.id
@@ -53,9 +53,9 @@ module.exports = {
                     if (!groupedData[category]) {
                         groupedData[category] = [];
                     }
-                    groupedData[category].push({ title: row.book_title });
+                    groupedData[category].push({ title: row.book_title, link: `https://library.revanetic.my.id/book/${row.book_id}` });
                 });
-                
+
                 totalBooksInShelves = rows.length;
                 db.close();
             } catch (err) {
@@ -124,7 +124,7 @@ module.exports = {
                 if (currentCategory) {
                     const listData = groupedData[currentCategory];
                     const totalPages = Math.ceil(listData.length / ITEMS_PER_PAGE);
-                    
+
                     if (currentPage < 0) currentPage = 0;
                     if (currentPage >= totalPages) currentPage = totalPages - 1;
 
@@ -133,7 +133,7 @@ module.exports = {
                     const pageItems = listData.slice(start, end);
 
                     const listText = pageItems.map((item, index) => {
-                        return `**${start + index + 1}. ${item.title}**`;
+                        return `**${start + index + 1}. [${item.title}](${item.link})**`;
                     }).join('\n\n');
 
                     const embedList = new EmbedBuilder()
@@ -153,7 +153,7 @@ module.exports = {
             });
 
             collector.on('end', () => {
-                interaction.editReply({ content: '⚠️ **Sesi Rak Buku Ditutup.**', components: [] }).catch(() => {});
+                interaction.editReply({ content: '⚠️ **Sesi Rak Buku Ditutup.**', components: [] }).catch(() => { });
             });
             return;
         }
@@ -164,7 +164,7 @@ module.exports = {
                 .setColor(0xF1C40F)
                 .setTitle('📔 Bank Diktat by PENDPRO')
                 .setDescription('Kumpulan diktat untuk warga KG.\n\n⚠️ **Peringatan:** Gunakan secara bijak. Dilarang menyebarluaskan kepada selain warga KG.\n\n🔗 **Link Akses:** [Google Drive PENDPRO](https://drive.google.com/drive/folders/1Kp5nziIWlxFohay2dc479kNG40FGx0Ow)').setFooter({ text: 'Amamiya by Revanda' });;
-            
+
             return interaction.reply({ embeds: [embedDiktat] });
         }
 
@@ -251,7 +251,7 @@ module.exports = {
                 if (currentCategory) {
                     const listData = groupedData[currentCategory];
                     const totalPages = Math.ceil(listData.length / ITEMS_PER_PAGE);
-                    
+
                     if (currentPage < 0) currentPage = 0;
                     if (currentPage >= totalPages) currentPage = totalPages - 1;
 
@@ -283,7 +283,7 @@ module.exports = {
             });
 
             collector.on('end', () => {
-                interaction.editReply({ content: '⚠️ **Sesi Perpustakaan Ditutup.** Ketik `/perpus` untuk buka lagi.', components: [] }).catch(() => {});
+                interaction.editReply({ content: '⚠️ **Sesi Perpustakaan Ditutup.** Ketik `/perpus` untuk buka lagi.', components: [] }).catch(() => { });
             });
         }
     },
