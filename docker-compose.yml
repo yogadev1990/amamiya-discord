@@ -12,8 +12,8 @@ services:
     volumes:
       - ./public:/app/public
     networks:
-      - proxy_net
+      - proxy-net
 
 networks:
-  proxy_net:
+  proxy-net:
     external: true
