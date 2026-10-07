@@ -59,12 +59,12 @@ module.exports = {
                 new ButtonBuilder().setCustomId('decline').setLabel('Takut ah').setStyle(ButtonStyle.Secondary)
             );
 
-            const msgInvite = await interaction.reply({
+            await interaction.reply({
                 content: `<@${opponent.id}>`,
                 embeds: [embedInvite],
-                components: [btnInvite],
-                fetchReply: true
+                components: [btnInvite]
             });
+            const msgInvite = await interaction.fetchReply();
 
             try {
                 const confirmation = await msgInvite.awaitMessageComponent({

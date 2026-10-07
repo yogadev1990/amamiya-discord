@@ -32,7 +32,7 @@ module.exports = {
             .setDescription(soal.tanya)
             .setFooter({ text: 'Jawab dalam waktu 15 detik...' });
 
-        await interaction.reply({ embeds: [embedSoal], fetchReply: true });
+        await interaction.reply({ embeds: [embedSoal] });
 
         const filter = response => {
             return response.author.id === interaction.user.id;

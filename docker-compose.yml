@@ -7,8 +7,9 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    volumes:
-      - ./public:/app/public
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     networks:
       - proxy-network
 

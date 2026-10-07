@@ -1,8 +1,15 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
-const { startWebServer } = require('./src/web/server');
 const { startMainBot } = require('./src/bots/main/index');
-// require('./src/bots/radio/index'); // Logika radio.js punya client.login sendiri
+
+// Penanganan global error agar bot tidak crash saat ada glitch koneksi/DNS (seperti EAI_AGAIN)
+process.on('unhandledRejection', (error) => {
+    console.error('⚠️ [Unhandled Rejection]:', error.message || error);
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('⚠️ [Uncaught Exception]:', error.message || error);
+});
 
 (async () => {
     try {
@@ -12,20 +19,18 @@ const { startMainBot } = require('./src/bots/main/index');
         });
         console.log('🍃 Terhubung ke MongoDB Atlas!');
 
-        // 1. Jalankan Web Server (Dashboard & Sockets)
-        const { io } = require('./src/web/server'); // Kita ambil io dari sini setelah dipanggil? 
-        // Sebenarnya startWebServer() sudah dipanggil di bawah
-        startWebServer();
+        // 1. Jalankan Main Bot
+        await startMainBot();
 
-        // 2. Jalankan Main Bot
-        await startMainBot(io);
-
-        // 3. Jalankan Radio Bot
+        // 2. Jalankan Radio Bot
         // radio.js (src/bots/radio/index.js) sudah memanggil client.login() di dalamnya.
-        // Cukup kita require agar kodenya dijalankan.
         require('./src/bots/radio/index');
 
-        console.log('🚀 Semua layanan (Main Bot, Radio Bot, Web) telah berjalan!');
+        // 3. Jalankan Sinkronisasi OAI-PMH Skripsi Unsri di background
+        const { startPeriodicHarvesting } = require('./src/services/oaiService');
+        startPeriodicHarvesting(24);
+
+        console.log('🚀 Semua layanan bot (Main Bot, Radio Bot, OAI Harvester) telah berjalan!');
     } catch (error) {
         console.error('❌ Gagal menjalankan Amamiya Orchestrator:', error.message);
         process.exit(1);

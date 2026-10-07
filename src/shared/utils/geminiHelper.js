@@ -1,10 +1,6 @@
-const { GoogleGenAI, mcpToTool } = require("@google/genai");
-const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
-const { SSEClientTransport } = require("@modelcontextprotocol/sdk/client/sse.js");
+const { GoogleGenAI } = require("@google/genai");
 const axios = require("axios");
 const User = require("../models/User"); // Import Model Database
-global.EventSource = require("eventsource"); 
-
 require("dotenv").config();
 
 // Fungsi helper: Download gambar
@@ -20,59 +16,47 @@ async function urlToGenerativePart(url, mimeType) {
 
 class GeminiAi {
   static async run(userId, username, message, imageUrl = null, mimeType = null) {
-    let mcpClient;
     try {
-      // 1. Setup Koneksi MCP
-      mcpClient = new Client({ name: "amamiya-discord", version: "1.0.0" });
-      await mcpClient.connect(new SSEClientTransport(new URL("https://mcp.revanetic.my.id/sse/")));
-
-      // 2. DATABASE: Ambil atau Buat User Baru
+      // 1. DATABASE: Ambil atau Buat User Baru
       let user = await User.findOne({ userId });
       if (!user) {
           user = await User.create({ userId, username, chatHistory: [] });
       }
 
-      // 3. DATABASE: Update History User (Input Baru)
-// 3. SETUP INPUT SAAT INI (Teks + File)
+      // 2. SETUP INPUT SAAT INI (Teks + File)
       let currentInputParts = [{ text: message }];
       if (imageUrl) {
           const imagePart = await urlToGenerativePart(imageUrl, mimeType);
-          currentInputParts.push(imagePart); // Ini untuk dikirim ke Google
+          currentInputParts.push(imagePart);
       }
 
       // SIMPAN KE DATABASE: HANYA TEKS SAJA (Mencegah MongoDB Overload)
       user.chatHistory.push({ role: 'user', parts: [{ text: message }] });
       
-      // LOGIC AMAN: Ambil history dari DB
+      // Ambil history percakapan dari DB
       let historyForGemini = user.chatHistory
           .slice(-20)
-          .map(h => {
-              return {
-                  role: h.role,
-                  parts: h.parts.map(p => ({ text: p.text || "" }))
-              };
-          });
+          .map(h => ({
+              role: h.role,
+              parts: h.parts.map(p => ({ text: p.text || "" }))
+          }));
 
-      // Hapus chat terakhir dari historyForGemini (karena kita akan menggantinya dengan currentInputParts yang ada file-nya)
       historyForGemini.pop(); 
-      // Masukkan input komplit (beserta file Base64) ke barisan paling akhir untuk dikirim ke AI
       historyForGemini.push({ role: 'user', parts: currentInputParts });
       
-      // 4. Generate Jawaban
+      // 3. Generate Jawaban langsung via Gemini API
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const systemInstruction = `
-        Kamu adalah Amamiya, asisten mahasiswa KG.
+        Kamu adalah Amamiya, asisten akademik pintar mahasiswa Kedokteran Gigi (KG) UNSRI.
         User saat ini: ${username} (Level ${user.level}).
-        Gaya bicara: Ramah, logis, medis.
-        Gunakan tools MCP jika relevan.
+        Gaya bicara: Ramah, logis, medis, edukatif, dan suportif.
       `.trim();
 
       const result = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: historyForGemini, // Kirim history dari DB
+        contents: historyForGemini,
         config: {
           systemInstruction,
-          tools: [mcpToTool(mcpClient, { allowAll: true })],
         },
       });
 
@@ -81,20 +65,17 @@ class GeminiAi {
         ? parts.map((p) => p.text).filter(Boolean).join("\n")
         : "Maaf, saya tidak bisa memproses jawaban.";
 
-      // 5. DATABASE: Simpan Jawaban Bot & Update XP
+      // 4. DATABASE: Simpan Jawaban Bot & Update XP
       user.chatHistory.push({ role: 'model', parts: [{ text: finalResponseText }] });
-      user.xp += 10; // Tambah 10 XP setiap tanya
-
+      user.xp += 10;
       user.lastInteraction = new Date();
-      await user.save(); // Simpan ke MongoDB
+      await user.save();
 
       return finalResponseText;
 
     } catch (error) {
-      console.error("❌ Gemini DB Error:", error);
+      console.error("❌ Gemini Error:", error);
       return `Maaf, ada gangguan sistem: ${error.message}`;
-    } finally {
-      if (mcpClient) await mcpClient.close();
     }
   }
 }

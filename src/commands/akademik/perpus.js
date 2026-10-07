@@ -96,7 +96,8 @@ module.exports = {
                     .addOptions(menuOptions)
             );
 
-            const msg = await interaction.reply({ embeds: [embedMain], components: [selectMenu], fetchReply: true });
+            await interaction.reply({ embeds: [embedMain], components: [selectMenu] });
+            const msg = await interaction.fetchReply();
             const collector = msg.createMessageComponentCollector({ time: 600000 }); // 10 Menit
 
             let currentCategory = null;
@@ -104,51 +105,55 @@ module.exports = {
             const ITEMS_PER_PAGE = 5;
 
             collector.on('collect', async i => {
-                if (i.user.id !== interaction.user.id) {
-                    return i.reply({ content: '❌ Akses ditolak.', ephemeral: true });
-                }
-
-                if (i.isStringSelectMenu()) {
-                    currentCategory = i.values[0];
-                    currentPage = 0;
-                } else if (i.isButton()) {
-                    if (i.customId === 'prev') currentPage--;
-                    if (i.customId === 'next') currentPage++;
-                    if (i.customId === 'home') {
-                        currentCategory = null;
-                        currentPage = 0;
-                        return i.update({ embeds: [embedMain], components: [selectMenu] });
+                try {
+                    if (i.user.id !== interaction.user.id) {
+                        return i.reply({ content: '❌ Akses ditolak.', ephemeral: true });
                     }
-                }
 
-                if (currentCategory) {
-                    const listData = groupedData[currentCategory];
-                    const totalPages = Math.ceil(listData.length / ITEMS_PER_PAGE);
+                    if (i.isStringSelectMenu()) {
+                        currentCategory = i.values[0];
+                        currentPage = 0;
+                    } else if (i.isButton()) {
+                        if (i.customId === 'prev') currentPage--;
+                        if (i.customId === 'next') currentPage++;
+                        if (i.customId === 'home') {
+                            currentCategory = null;
+                            currentPage = 0;
+                            return i.update({ embeds: [embedMain], components: [selectMenu] });
+                        }
+                    }
 
-                    if (currentPage < 0) currentPage = 0;
-                    if (currentPage >= totalPages) currentPage = totalPages - 1;
+                    if (currentCategory) {
+                        const listData = groupedData[currentCategory];
+                        const totalPages = Math.ceil(listData.length / ITEMS_PER_PAGE);
 
-                    const start = currentPage * ITEMS_PER_PAGE;
-                    const end = start + ITEMS_PER_PAGE;
-                    const pageItems = listData.slice(start, end);
+                        if (currentPage < 0) currentPage = 0;
+                        if (currentPage >= totalPages) currentPage = totalPages - 1;
 
-                    const listText = pageItems.map((item, index) => {
-                        return `**${start + index + 1}. [${item.title}](${item.link})**`;
-                    }).join('\n\n');
+                        const start = currentPage * ITEMS_PER_PAGE;
+                        const end = start + ITEMS_PER_PAGE;
+                        const pageItems = listData.slice(start, end);
 
-                    const embedList = new EmbedBuilder()
-                        .setColor(0x2ECC71)
-                        .setTitle(`🗂️ Rak: ${currentCategory}`)
-                        .setDescription(listText || "Rak kosong.")
-                        .setFooter({ text: `Halaman ${currentPage + 1} dari ${totalPages} • Total ${listData.length} Buku` });
+                        const listText = pageItems.map((item, index) => {
+                            return `**${start + index + 1}. [${item.title}](${item.link})**`;
+                        }).join('\n\n');
 
-                    const updatedButtons = new ActionRowBuilder().addComponents(
-                        new ButtonBuilder().setCustomId('prev').setLabel('⬅️ Sebelumnya').setStyle(ButtonStyle.Primary).setDisabled(currentPage === 0),
-                        new ButtonBuilder().setCustomId('home').setLabel('🏠 Beranda').setStyle(ButtonStyle.Secondary),
-                        new ButtonBuilder().setCustomId('next').setLabel('Selanjutnya ➡️').setStyle(ButtonStyle.Primary).setDisabled(currentPage >= totalPages - 1)
-                    );
+                        const embedList = new EmbedBuilder()
+                            .setColor(0x2ECC71)
+                            .setTitle(`🗂️ Rak: ${currentCategory}`)
+                            .setDescription(listText || "Rak kosong.")
+                            .setFooter({ text: `Halaman ${currentPage + 1} dari ${totalPages} • Total ${listData.length} Buku` });
 
-                    await i.update({ embeds: [embedList], components: [selectMenu, updatedButtons] });
+                        const updatedButtons = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder().setCustomId('prev').setLabel('⬅️ Sebelumnya').setStyle(ButtonStyle.Primary).setDisabled(currentPage === 0),
+                            new ButtonBuilder().setCustomId('home').setLabel('🏠 Beranda').setStyle(ButtonStyle.Secondary),
+                            new ButtonBuilder().setCustomId('next').setLabel('Selanjutnya ➡️').setStyle(ButtonStyle.Primary).setDisabled(currentPage >= totalPages - 1)
+                        );
+
+                        await i.update({ embeds: [embedList], components: [selectMenu, updatedButtons] });
+                    }
+                } catch (collectorErr) {
+                    console.error('Error in perpus collector (diktat/ebook):', collectorErr.message || collectorErr);
                 }
             });
 
@@ -170,25 +175,21 @@ module.exports = {
 
         // --- OPSI 3: REPOSITORY SKRIPSI ---
         if (pilihanLayanan === 'skripsi') {
-            const dbPath = path.join(__dirname, '../../data/skripsi_db.json');
-            let rawData = [];
+            const { getLocalSkripsi } = require('../../services/oaiService');
+            const rawData = getLocalSkripsi();
             let groupedData = {};
 
-            try {
-                const fileContent = fs.readFileSync(dbPath, 'utf8');
-                rawData = JSON.parse(fileContent);
-
-                rawData.forEach(item => {
-                    const category = item.specialization || 'Lain-lain';
-                    if (!groupedData[category]) {
-                        groupedData[category] = [];
-                    }
-                    groupedData[category].push(item);
-                });
-            } catch (err) {
-                console.error("Gagal load database:", err);
-                return interaction.reply({ content: "❌ Database Skripsi belum diupload atau format salah.", ephemeral: true });
+            if (!rawData || rawData.length === 0) {
+                return interaction.reply({ content: "❌ Database Skripsi belum tersedia.", ephemeral: true });
             }
+
+            rawData.forEach(item => {
+                const category = item.specialization || 'Umum / Lainnya';
+                if (!groupedData[category]) {
+                    groupedData[category] = [];
+                }
+                groupedData[category].push(item);
+            });
 
             const totalSkripsi = rawData.length;
             const totalKategori = Object.keys(groupedData).length;
@@ -220,9 +221,8 @@ module.exports = {
                     .addOptions(menuOptions)
             );
 
-            // fetchReply wajib true agar kita bisa menempelkan collector pada pesan balasan bot
-            const msg = await interaction.reply({ embeds: [embedMain], components: [selectMenu], fetchReply: true });
-
+            await interaction.reply({ embeds: [embedMain], components: [selectMenu] });
+            const msg = await interaction.fetchReply();
             const collector = msg.createMessageComponentCollector({ time: 600000 }); // 10 Menit
 
             let currentCategory = null;
@@ -230,55 +230,59 @@ module.exports = {
             const ITEMS_PER_PAGE = 5;
 
             collector.on('collect', async i => {
-                // Validasi agar hanya user pembuat command yang bisa klik
-                if (i.user.id !== interaction.user.id) {
-                    return i.reply({ content: '❌ Akses ditolak. Ketik `/perpus` sendiri untuk membuka perpustakaan.', ephemeral: true });
-                }
-
-                if (i.isStringSelectMenu()) {
-                    currentCategory = i.values[0];
-                    currentPage = 0;
-                } else if (i.isButton()) {
-                    if (i.customId === 'prev') currentPage--;
-                    if (i.customId === 'next') currentPage++;
-                    if (i.customId === 'home') {
-                        currentCategory = null;
-                        currentPage = 0;
-                        return i.update({ embeds: [embedMain], components: [selectMenu] });
+                try {
+                    // Validasi agar hanya user pembuat command yang bisa klik
+                    if (i.user.id !== interaction.user.id) {
+                        return i.reply({ content: '❌ Akses ditolak. Ketik `/perpus` sendiri untuk membuka perpustakaan.', ephemeral: true });
                     }
-                }
 
-                if (currentCategory) {
-                    const listData = groupedData[currentCategory];
-                    const totalPages = Math.ceil(listData.length / ITEMS_PER_PAGE);
+                    if (i.isStringSelectMenu()) {
+                        currentCategory = i.values[0];
+                        currentPage = 0;
+                    } else if (i.isButton()) {
+                        if (i.customId === 'prev') currentPage--;
+                        if (i.customId === 'next') currentPage++;
+                        if (i.customId === 'home') {
+                            currentCategory = null;
+                            currentPage = 0;
+                            return i.update({ embeds: [embedMain], components: [selectMenu] });
+                        }
+                    }
 
-                    if (currentPage < 0) currentPage = 0;
-                    if (currentPage >= totalPages) currentPage = totalPages - 1;
+                    if (currentCategory) {
+                        const listData = groupedData[currentCategory];
+                        const totalPages = Math.ceil(listData.length / ITEMS_PER_PAGE);
 
-                    const start = currentPage * ITEMS_PER_PAGE;
-                    const end = start + ITEMS_PER_PAGE;
-                    const pageItems = listData.slice(start, end);
+                        if (currentPage < 0) currentPage = 0;
+                        if (currentPage >= totalPages) currentPage = totalPages - 1;
 
-                    const listText = pageItems.map((item, index) => {
-                        const penulis = Array.isArray(item.authors) ? item.authors[0] : (item.authors || 'Tanpa Nama');
-                        const tahun = item.year || '????';
-                        const link = item.url || '#';
-                        return `**${start + index + 1}. [${item.title}](${link})**\n   👤 *${penulis}* | 🗓️ ${tahun}`;
-                    }).join('\n\n');
+                        const start = currentPage * ITEMS_PER_PAGE;
+                        const end = start + ITEMS_PER_PAGE;
+                        const pageItems = listData.slice(start, end);
 
-                    const embedList = new EmbedBuilder()
-                        .setColor(0x2ECC71)
-                        .setTitle(`📂 Departemen: ${currentCategory}`)
-                        .setDescription(listText || "Belum ada data.")
-                        .setFooter({ text: `Halaman ${currentPage + 1} dari ${totalPages} • Total ${listData.length} Judul` });
+                        const listText = pageItems.map((item, index) => {
+                            const penulis = Array.isArray(item.authors) ? item.authors[0] : (item.authors || 'Tanpa Nama');
+                            const tahun = item.year || '????';
+                            const link = item.url || '#';
+                            return `**${start + index + 1}. [${item.title}](${link})**\n   👤 *${penulis}* | 🗓️ ${tahun}`;
+                        }).join('\n\n');
 
-                    const updatedButtons = new ActionRowBuilder().addComponents(
-                        new ButtonBuilder().setCustomId('prev').setLabel('⬅️ Sebelumnya').setStyle(ButtonStyle.Primary).setDisabled(currentPage === 0),
-                        new ButtonBuilder().setCustomId('home').setLabel('🏠 Beranda').setStyle(ButtonStyle.Secondary),
-                        new ButtonBuilder().setCustomId('next').setLabel('Selanjutnya ➡️').setStyle(ButtonStyle.Primary).setDisabled(currentPage >= totalPages - 1)
-                    );
+                        const embedList = new EmbedBuilder()
+                            .setColor(0x2ECC71)
+                            .setTitle(`📂 Departemen: ${currentCategory}`)
+                            .setDescription(listText || "Belum ada data.")
+                            .setFooter({ text: `Halaman ${currentPage + 1} dari ${totalPages} • Total ${listData.length} Judul` });
 
-                    await i.update({ embeds: [embedList], components: [selectMenu, updatedButtons] });
+                        const updatedButtons = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder().setCustomId('prev').setLabel('⬅️ Sebelumnya').setStyle(ButtonStyle.Primary).setDisabled(currentPage === 0),
+                            new ButtonBuilder().setCustomId('home').setLabel('🏠 Beranda').setStyle(ButtonStyle.Secondary),
+                            new ButtonBuilder().setCustomId('next').setLabel('Selanjutnya ➡️').setStyle(ButtonStyle.Primary).setDisabled(currentPage >= totalPages - 1)
+                        );
+
+                        await i.update({ embeds: [embedList], components: [selectMenu, updatedButtons] });
+                    }
+                } catch (collectorErr) {
+                    console.error('Error in perpus collector (skripsi):', collectorErr.message || collectorErr);
                 }
             });
 

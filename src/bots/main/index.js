@@ -2,7 +2,7 @@ const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
-async function startMainBot(io) {
+async function startMainBot() {
     const client = new Client({
         intents: [
             GatewayIntentBits.Guilds,
@@ -13,7 +13,6 @@ async function startMainBot(io) {
         ],
     });
 
-    client.io = io;
     client.commands = new Collection();
 
     // Load Commands

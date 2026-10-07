@@ -81,12 +81,11 @@ module.exports = {
             .setThumbnail(interaction.client.user.displayAvatarURL())
             .setFooter({ text: 'Developed by Revanda • KG UNSRI' });
 
-        // Mengirim pesan dengan komponen
-        const response = await interaction.reply({ 
+        await interaction.reply({ 
             embeds: [mainEmbed], 
-            components: [actionRow],
-            fetchReply: true // Penting agar bisa melacak interaksi
+            components: [actionRow]
         });
+        const response = await interaction.fetchReply();
 
         // 4. Sistem Kolektor Interaksi (Sub Menu Logic)
         const collector = response.createMessageComponentCollector({ 
