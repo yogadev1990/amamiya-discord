@@ -4,6 +4,9 @@ FROM node:22-alpine
 # Set folder kerja di dalam container
 WORKDIR /app
 
+# Atur disturl agar node-gyp mengambil header resmi Node.js (menghindari timeout unofficial-builds di Alpine)
+ENV npm_config_disturl=https://nodejs.org/dist
+
 # Gabungkan instalasi library OS agar image lebih ringan dan optimal
 # Termasuk build-base & dev tools untuk kompilasi Canvas
 # Termasuk ghostscript & graphicsmagick untuk pdf2pic
