@@ -10,8 +10,8 @@ services:
     volumes:
       - ./public:/app/public
     networks:
-      - proxy-net
+      - proxy-network
 
 networks:
-  proxy-net:
+  proxy-network:
     external: true
