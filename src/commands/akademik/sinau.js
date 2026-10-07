@@ -1,6 +1,6 @@
 require("dotenv").config();
 const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
-const { MilvusClient } = require("@zilliz/milvus2-sdk-node");
+const { milvusClient } = require("../../shared/utils/milvusClient");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { PDFParse } = require('pdf-parse');
 const axios = require('axios');
@@ -15,7 +15,6 @@ const Notebook = require('../../shared/models/Notebook');
 
 // --- KONFIGURASI ---
 const STORAGE_PATH = "/materi"; // Menggunakan volume mount
-const milvusClient = new MilvusClient({ address: `${process.env.MILVUS_HOST}:${process.env.MILVUS_PORT}`, ssl: false });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Pastikan direktori storage ada

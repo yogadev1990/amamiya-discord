@@ -1,13 +1,9 @@
 const { GoogleGenAI } = require('@google/genai');
-const { MilvusClient } = require('@zilliz/milvus2-sdk-node');
-const fs = require('fs'); // <--- TAMBAHKAN INI UNTUK MEMBACA FILE
+const { milvusClient } = require('../shared/utils/milvusClient');
+const fs = require('fs');
 require('dotenv').config();
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const milvusClient = new MilvusClient({
-    address: `${process.env.MILVUS_HOST}:${process.env.MILVUS_PORT}`,
-    ssl: false
-});
 
 async function searchMateriKuliah(queryText) {
     try {

@@ -1,10 +1,6 @@
-const { MilvusClient, DataType } = require("@zilliz/milvus2-sdk-node");
+const { milvusClient } = require("./milvusClient");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 require("dotenv").config();
-
-// Pastikan tidak ada http:// di host
-const address = `${process.env.MILVUS_HOST}:${process.env.MILVUS_PORT}`;
-const milvusClient = new MilvusClient({ address, ssl: false });
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
